@@ -23,32 +23,24 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
-TMP=$(/usr/bin/sw_vers | grep BuildVersion)
-BUILD=${TMP:(-5)}
+BUILDSTRING=$(/usr/bin/sw_vers | grep BuildVersion)
+BUILD=${BUILDSTRING:(-5)}
 
 function usage {
-	echo ""
-	echo "   "`basename "$0"`" [options]"
-	echo ""
-	echo "          -p            Just get the updates plist"
-	echo ""
-	echo "          -u <url>      Use driver package at <url>, no version checks"
-	echo ""
-	echo "          -R            Un-install Nvidia web drivers"
-	echo ""
-	echo "          -m <build>    Modify the current driver's NVDARequiredOS"
-        echo ""
+	echo "Usage: "$(basename $0)" [-f] [-c] [-p|-r|-u url|-m [build]]"
 	echo "          -f            Re-install"
-	echo ""
         echo "          -c            Don't update caches"
-	echo ""
+	echo "          -p            Get the updates plist and exit"
+	echo "          -r            Un-install Nvidia web drivers"
+	echo "          -u url        Install driver package at url, no version checks"
+	echo "          -m [build]    Modify the current driver's NVDARequiredOS"
 }
 
 PROMPT_REBOOT=true
 NO_CACHE=false
 REINSTALL=false
 let N=0
-while getopts ":hpu:Rm:cf" OPTION; do
+while getopts ":hpu:rm:cf" OPTION; do
 	if [ "$OPTION" == "h" ]; then
 		usage
 		exit 0
@@ -59,7 +51,7 @@ while getopts ":hpu:Rm:cf" OPTION; do
 		FUNC="url"
 		U_URL=$OPTARG
 		let N+=1
-	elif [ "$OPTION" == "R" ]; then
+	elif [ "$OPTION" == "r" ]; then
 		FUNC="remove"
 		let N+=1
 	elif [ "$OPTION" == "m" ]; then
@@ -216,7 +208,7 @@ if [ "$FUNC" == "mod" ]; then
 	fi
 fi
 
-# getopts -R -> uninstall then exit
+# getopts -r -> uninstall then exit
 
 if [ "$FUNC" == "remove" ]; then
 	read -n 1 -s -r -p "Uninstall Nvidia web drivers? y/N" input
