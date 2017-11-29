@@ -227,7 +227,7 @@ fi
 # Clean
 
 clean
-PROMPT="Install? y/N"
+PROMPT="Install?"
 
 if [ "$FUNC" != "url" ]; then
 
@@ -286,7 +286,7 @@ if [ "$FUNC" != "url" ]; then
 		# latest already installed, exit
 		printf "$VER for $BUILD already installed\n"
 		if $REINSTALL; then
-			PROMPT="Re-install? y/N"
+			PROMPT="Re-install?"
 		else
 			clean
 			exit 0
@@ -307,7 +307,8 @@ fi
 
 # Start
 
-read -n 1 -s -r -p "$PROMPT" INPUT
+printf "$PROMPT"
+read -n 1 -s -r -p " [y/N]" INPUT
 case "$INPUT" in
 y|Y)
 	printf "\n" ;;
