@@ -24,7 +24,7 @@ if [ $? -ne 0 ]; then
 fi
 
 BUILDSTRING=$(/usr/bin/sw_vers | grep BuildVersion)
-BUILD=${BUILDSTRING:(-5)}
+BUILD=${BUILDSTRING##*:}
 
 function usage {
 	echo "Usage: "$(basename $0)" [-f] [-c] [-p|-r|-u url|-m [build]]"
@@ -211,7 +211,8 @@ fi
 # getopts -r -> uninstall then exit
 
 if [ "$FUNC" == "remove" ]; then
-	read -n 1 -s -r -p "Uninstall Nvidia web drivers? y/N" input
+	printf "Uninstall Nvidia web drivers?"
+	read -n 1 -s -r -p " [y/N]" input
 	case "$input" in
 	y|Y )
 		printf "\n" ;;
