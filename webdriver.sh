@@ -181,7 +181,7 @@ fi
 # Check root
 
 if [ "$(id -u)" != "0" ]; then
-	error "Run it as root: sudo $0"; fi
+	error "Run it as root: sudo $(basename $0) $@"; fi
 
 # Check SIP
 
