@@ -24,7 +24,7 @@ if [ $? -ne 0 ]; then
 fi
 
 BUILDSTRING=$(/usr/bin/sw_vers | grep BuildVersion)
-BUILD=${BUILDSTRING##*:}
+BUILD=${BUILDSTRING##*[[:space:]]}
 
 function usage {
 	echo "Usage: "$(basename $0)" [-f] [-c] [-p|-r|-u url|-m [build]]"
