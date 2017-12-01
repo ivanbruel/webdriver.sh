@@ -166,6 +166,18 @@ function sql_add_kext {
 	printf "values (\"$TEAM_ID\",\"$1\",1,\"$DEVELOPER_NAME\",1);\n" >> $SQL_TMP
 }
 
+function ask {
+	printf $1
+	read -n 1 -s -r -p " [y/N]" input
+	case "$input" in
+	y|Y )
+		printf "\n"
+		return 1 ;;
+	*)
+		exit 0 ;;
+	esac
+}
+
 # getopts -p -> get the plist then exit
 
 if [ "$FUNC" == "plist" ]; then
@@ -210,14 +222,7 @@ fi
 # getopts -r -> uninstall then exit
 
 if [ "$FUNC" == "remove" ]; then
-	printf "Uninstall Nvidia web drivers?"
-	read -n 1 -s -r -p " [y/N]" input
-	case "$input" in
-	y|Y )
-		printf "\n" ;;
-	*)
-		exit 0 ;;
-	esac
+	ask "Uninstall Nvidia web drivers?"
 	printf "Removing files...\n"
 	remove
 	caches
@@ -307,15 +312,7 @@ fi
 
 # Start
 
-printf "$PROMPT"
-read -n 1 -s -r -p " [y/N]" INPUT
-case "$INPUT" in
-y|Y)
-	printf "\n" ;;
-*)
-	clean
-	exit 0 ;;
-esac
+ask "$PROMPT"
 
 # Download
 
