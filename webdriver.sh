@@ -17,14 +17,13 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-/usr/bin/sw_vers | grep "10.13" > /dev/null 2>&1
+/usr/bin/sw_vers -productVersion | grep "10.13" > /dev/null 2>&1
 if [ $? -ne 0 ]; then
 	printf "Unsupported macOS version"
 	exit 1
 fi
 
-BUILDSTRING=$(/usr/bin/sw_vers | grep BuildVersion)
-BUILD=${BUILDSTRING##*[[:space:]]}
+BUILD=$(/usr/bin/sw_vers -buildVersion)
 
 function usage {
 	echo "Usage: "$(basename $0)" [-f] [-c] [-p|-r|-u url|-m [build]]"
