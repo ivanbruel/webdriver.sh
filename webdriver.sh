@@ -98,6 +98,7 @@ MOD_KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
 DRIVERS_DIR_HINT="NVWebDrivers.pkg"
 DEVELOPER_NAME="NVIDIA Corporation"
 TEAM_ID="6KR3T733EC"
+CHANGES_MADE=false
 
 # Functions
 
@@ -123,13 +124,27 @@ function clean {
 }
 
 function error {
+	# error message exit_code
 	clean
-	printf "Error: $1\n"
+	printf "Error: $1"
+	if [ $2 -ne 0 ]; then
+		printf "($2)"; fi
+	printf "\n"
+	if [ $CHANGES_MADE == false ]; then
+		printf "No changes were made\n"; fi
 	exit 1
 }
 
 function warning {
+	# warning message
 	printf "Warning: $1\n"
+}
+
+function on_error {
+	# on_error message exit_code
+	if [ $2 -ne 0 ]; then
+		error "$1" $2
+	fi
 }
 
 function remove {
@@ -156,8 +171,7 @@ function caches {
 	printf "Updating caches...\n"
 	/usr/bin/touch /Library/Extensions /System/Library/Extensions
 	/usr/sbin/kextcache -u /
-	if [ $? -ne 0 ]; then
-		error "kextcache exit code $?"; fi
+	on_error "Couldn't update caches" $?
 }
 
 function sql_add_kext {
@@ -183,8 +197,7 @@ function ask {
 if [ "$FUNC" == "plist" ]; then
 	printf "Downloading '$UPDATE_PLIST'\n"
 	curl -o "$UPDATE_PLIST" -# $UPDATE_PLIST_REMOTE
-	if [ $? -ne 0 ]; then
-		error "curl exit code $?"; fi
+	on_error "Couldn't get updates data from Nvidia" $?
 	open -R "$UPDATE_PLIST"
 	exit 0
 fi
@@ -192,20 +205,20 @@ fi
 # Check root
 
 if [ "$(id -u)" != "0" ]; then
-	error "Run it as root: sudo $(basename $0) $@"; fi
+	error "Run it as root: sudo $(basename $0) $@" 0; fi
 
 # Check SIP
 
 CSRUTIL=$(/usr/bin/csrutil status)
 P="Filesystem Protections: disabled|System Integrity Protection status: disabled."
 silent /usr/bin/grep -E "$P" <<< "$CSRUTIL"
-if [ $? -ne 0 ]; then
-	error "Is SIP enabled? No changes were made"; fi
+on_error "Is SIP enabled?" $?
 
 # getopts -m -> modify NVDARequireOS then exit
 
 if [ "$FUNC" == "mod" ]; then
 	if [ -f "$MOD_PATH" ]; then
+		CHANGES_MADE=true
 		printf "Setting NVDARequiredOS to $MOD_VER_STR...\n"
 		$PLISTB "Set $MOD_KEY $MOD_VER_STR" $MOD_PATH
 		if [ $? -ne 0 ]; then
@@ -215,7 +228,7 @@ if [ "$FUNC" == "mod" ]; then
 			exit 0
 		fi
 	else
-		error "$MOD_PATH not found"
+		error "$MOD_PATH not found" 0
 	fi
 fi
 
@@ -224,6 +237,7 @@ fi
 if [ "$FUNC" == "remove" ]; then
 	ask "Uninstall Nvidia web drivers?"
 	printf "Removing files...\n"
+	CHANGES_MADE=true
 	remove
 	caches
 	bye
@@ -254,8 +268,7 @@ if [ "$FUNC" != "url" ]; then
 
 	printf 'Checking for updates...\n'
 	curl -o $UPDATE_PLIST -s $UPDATE_PLIST_REMOTE
-	if [ $? -ne 0 ]; then
-		error "Couldn't get updates data from Nvidia"; fi
+	on_error "Couldn't get updates data from Nvidia" $?
 
 	# Check for an update
 
@@ -318,8 +331,7 @@ ask "$PROMPT"
 
 printf "Downloading package...\n"
 /usr/bin/curl -o $PKG_DST -# $U_URL
-if [ $? -ne 0 ]; then
-	error "curl exit code $?, no changes were made"; fi
+on_error "Couldn't download package" $?
 
 # Extract
 
@@ -327,8 +339,7 @@ printf "Extracting...\n"
 /usr/sbin/pkgutil --expand $PKG_DST $PKG_DIR
 cd $PKG_DIR/*$DRIVERS_DIR_HINT
 cat Payload | gunzip -dc | cpio -i
-if [ $? -ne 0 ]; then
-	error "Unpack failed, no changes were made"; fi
+on_error "Couldn't extract package" $?
 
 # Make SQL
 
@@ -337,11 +348,11 @@ KEXTS=(./Library/Extensions/*kext/)
 for KEXT in "${KEXTS[@]}"; do
 	PLIST="$KEXT/Contents/Info.plist"
 	BUNDLE_ID=$($PLISTB "Print :CFBundleIdentifier" $PLIST 2> /dev/null)
-	if [ $? -ne 0 ]; then
-		error "plistbuddy exit code $?, no changes were made"; fi
 	sql_add_kext "$BUNDLE_ID"
 done
 sql_add_kext "com.nvidia.CUDA"
+
+CHANGES_MADE=true
 
 # Allow kexts
 
