@@ -84,8 +84,6 @@ if [ $N -gt 1 ]; then
 	exit 1
 fi
 
-Z="/dev/null"
-PLISTB="/usr/libexec/PlistBuddy -c"
 DIR=~/Downloads
 UPDATE_PLIST="$DIR/NvidiaUpdates.plist"
 PKG_DST="$DIR/.nvweb.pkg"
@@ -192,6 +190,31 @@ function ask {
 	esac
 }
 
+function installed_version {
+	INFO_PLIST="$CHECK_INSTALLED_VERSION/Contents/Info.plist"
+	if [ -f $INFO_PLIST ]; then
+		GETINFO=$(plistb "Print :CFBundleGetInfoString" $INFO_PLIST false)
+		GETINFO="${GETINFO##* }"
+		# check version string is the format we expect
+		COUNT="${GETINFO//[^.]}"  # get . characters
+		COUNT="${#COUNT}"  # how many?
+		if [ "$COUNT" == "5" ]; then
+			# 5 dots is ok
+			echo "$GETINFO";
+			exit 0
+		fi
+	fi
+	echo "none"
+}
+
+function plistb {
+	# plistb command file fatal
+	/usr/libexec/PlistBuddy -c "$1" "$2" 2> /dev/null
+	if [ $? -ne 0 ] && [ $3 == true ]; then
+		error "plistbuddy" $?
+	fi
+}
+
 # getopts -p -> get the plist then exit
 
 if [ "$FUNC" == "plist" ]; then
@@ -220,13 +243,9 @@ if [ "$FUNC" == "mod" ]; then
 	if [ -f "$MOD_PATH" ]; then
 		CHANGES_MADE=true
 		printf "Setting NVDARequiredOS to $MOD_VER_STR...\n"
-		$PLISTB "Set $MOD_KEY $MOD_VER_STR" $MOD_PATH
-		if [ $? -ne 0 ]; then
-			error "plistbuddy exit code $?"
-		else
-			caches
-			exit 0
-		fi
+		plistb "Set $MOD_KEY $MOD_VER_STR" "$MOD_PATH" true
+		caches
+		exit 0
 	else
 		error "$MOD_PATH not found" 0
 	fi
@@ -252,17 +271,7 @@ if [ "$FUNC" != "url" ]; then
 
 	# No URL specified, get installed web driver verison
 
-	VER="none"
-	INFO_PLIST="$CHECK_INSTALLED_VERSION/Contents/Info.plist"
-	if [ -f $INFO_PLIST ]; then
-		GETINFO=$($PLISTB "Print :CFBundleGetInfoString" $INFO_PLIST 2> $Z)
-		GETINFO="${GETINFO##* }"
-		# check if we have a valid version string
-		COUNT="${GETINFO//[^.]}"  # get . characters
-		COUNT="${#COUNT}"  # how many?
-		if [ "$COUNT" == "5" ]; then
-			VER=$GETINFO; fi  # 5 dots is ok
-	fi
+	VER=$(installed_version)
 
 	# Get updates file
 
@@ -274,7 +283,7 @@ if [ "$FUNC" != "url" ]; then
 
 	let i=0
 	while true; do
-		U_BUILD=$($PLISTB "Print :updates:$i:OS" $UPDATE_PLIST 2> $Z)
+		U_BUILD=$(plistb "Print :updates:$i:OS" "$UPDATE_PLIST" false)
 		if [ $? -ne 0 ]; then
 			U_BUILD="none"
 			U_URL="none"
@@ -282,10 +291,10 @@ if [ "$FUNC" != "url" ]; then
 			break
 		fi
 		if [ "$U_BUILD" == "$BUILD" ]; then
-			U_URL=$($PLISTB "Print :updates:$i:downloadURL" $UPDATE_PLIST 2> $Z)
+			U_URL=$(plistb "Print :updates:$i:downloadURL" "$UPDATE_PLIST" false)
 			if [ $? -ne 0 ]; then
 				U_URL="none"; fi
-			U_VER=$($PLISTB "Print :updates:$i:version" $UPDATE_PLIST 2> $Z)
+			U_VER=$(plistb "Print :updates:$i:version" "$UPDATE_PLIST" false)
 			if [ $? -ne 0 ]; then
 				U_VER="none"; fi
 			break
@@ -347,7 +356,7 @@ cd $PKG_DIR/*$DRIVERS_DIR_HINT
 KEXTS=(./Library/Extensions/*kext/)
 for KEXT in "${KEXTS[@]}"; do
 	PLIST="$KEXT/Contents/Info.plist"
-	BUNDLE_ID=$($PLISTB "Print :CFBundleIdentifier" $PLIST 2> /dev/null)
+	BUNDLE_ID=$(plistb "Print :CFBundleIdentifier" $PLIST true)
 	sql_add_kext "$BUNDLE_ID"
 done
 sql_add_kext "com.nvidia.CUDA"
