@@ -116,7 +116,10 @@ function error {
 		printf "($2)"; fi
 	printf "\n"
 	if [ $CHANGES_MADE == false ]; then
-		printf "No changes were made\n"; fi
+		printf "No changes were made\n"
+	else
+		unset_nvram
+	fi
 	exit 1
 }
 
@@ -191,6 +194,14 @@ function plistb {
 	fi
 }
 
+function set_nvram {
+	/usr/sbin/nvram nvda_drv=1%00
+}
+
+function unset_nvram {
+	/usr/sbin/nvram -d nvda_drv
+}
+
 # Check root
 
 if [ "$(id -u)" != "0" ]; then
@@ -213,6 +224,7 @@ if [ "$COMMAND" == "Modify_NVDARequiredOS_And_Exit" ]; then
 		printf "Setting NVDARequiredOS to $MOD_NVDA_REQUIRED_OS...\n"
 		plistb "Set $MOD_KEY $MOD_NVDA_REQUIRED_OS" "$MOD_INFO_PLIST_PATH" true
 		caches
+		set_nvram
 		bye
 	else
 		error "$MOD_INFO_PLIST_PATH not found" 0
@@ -227,6 +239,7 @@ if [ "$COMMAND" == "Uninstall_Webdrivers_And_Exit" ]; then
 	CHANGES_MADE=true
 	remove
 	caches
+	unset_nvram
 	bye
 fi
 
@@ -383,5 +396,6 @@ cp -r ./System/Library/Extensions/* /System/Library/Extensions
 # Update caches and exit
 
 caches
+set_nvram
 clean
 bye
