@@ -22,6 +22,12 @@ webdriver.sh [options]
 
 The default for option -m is the currently installed macOS build. See the script itself for tuning uninstall/removal of files.
 
+Installing
+
+INSTALL.command copies webdriver.sh to /usr/local/bin/webdriver and makes it executable. With /usr/local/bin in your $PATH:
+        
+        webdriver [options]  
+
 License
 
 This project is licensed under the terms of the GPL 3.0
