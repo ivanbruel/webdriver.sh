@@ -118,7 +118,7 @@ function clean {
 	silent rm -rf $PKG_DIR
 	silent rm -f $PKG_DST
 	silent rm -f $SQL_TMP
-	silent rm -f $UPDATE_PLIST
+	# silent rm -f $UPDATE_PLIST
 }
 
 function error {
