@@ -186,6 +186,7 @@ function ask {
 		printf "\n"
 		return 1 ;;
 	*)
+		clean
 		exit 0 ;;
 	esac
 }
