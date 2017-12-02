@@ -23,7 +23,13 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
-BUILD=$(/usr/bin/sw_vers -buildVersion)
+MAC_OS_BUILD=$(/usr/bin/sw_vers -buildVersion)
+DIR=~/Downloads
+REMOTE_UPDATE_PLIST="https://gfestage.nvidia.com/mac-update"
+CHANGES_MADE=false
+PROMPT_REBOOT=true
+NO_CACHE_UPDATE=false
+REINSTALL=false
 
 function usage {
 	echo "Usage: "$(basename $0)" [-f] [-c] [-p|-r|-u url|-m [build]]"
@@ -35,30 +41,27 @@ function usage {
 	echo "          -m [build]    Modify the current driver's NVDARequiredOS"
 }
 
-PROMPT_REBOOT=true
-NO_CACHE=false
-REINSTALL=false
 let N=0
 while getopts ":hpu:rm:cf" OPTION; do
 	if [ "$OPTION" == "h" ]; then
 		usage
 		exit 0
 	elif [ "$OPTION" == "p" ]; then
-		FUNC="plist"
+		COMMAND="Get_Plist_And_Exit"
 		let N+=1
 	elif [ "$OPTION" == "u" ]; then
-		FUNC="url"
-		U_URL=$OPTARG
+		COMMAND="User_Provided_URL"
+		REMOTE_URL=$OPTARG
 		let N+=1
 	elif [ "$OPTION" == "r" ]; then
-		FUNC="remove"
+		COMMAND="Uninstall_Webdrivers_And_Exit"
 		let N+=1
 	elif [ "$OPTION" == "m" ]; then
-		MOD_VER_STR=$OPTARG
-		FUNC="mod"
+		MOD_NVDA_REQUIRED_OS=$OPTARG
+		COMMAND="Modify_NVDARequiredOS_And_Exit"
 		let N+=1
 	elif [ "$OPTION" == "c" ]; then
-		NO_CACHE=true
+		NO_CACHE_UPDATE=true
 		PROMPT_REBOOT=false
 	elif [ "$OPTION" == "f" ]; then
 		REINSTALL=true
@@ -68,8 +71,8 @@ while getopts ":hpu:rm:cf" OPTION; do
 		exit 1
 	elif [ "$OPTION" == ":" ]; then
 		if [ $OPTARG == "m" ]; then
-			MOD_VER_STR=$BUILD
-			FUNC="mod"
+			MOD_NVDA_REQUIRED_OS=$MAC_OS_BUILD
+			COMMAND="Modify_NVDARequiredOS_And_Exit"
 			let N+=1
 		else
 			printf "Missing parameter\n"
@@ -83,22 +86,6 @@ if [ $N -gt 1 ]; then
 	usage
 	exit 1
 fi
-
-DIR=~/Downloads
-UPDATE_PLIST="$DIR/NvidiaUpdates.plist"
-PKG_DST="$DIR/.nvweb.pkg"
-PKG_DIR="$DIR/.nvwebinstall"
-SQL_TMP="$DIR/.nvweb.sql"
-UPDATE_PLIST_REMOTE="https://gfestage.nvidia.com/mac-update"
-CHECK_INSTALLED_VERSION="/Library/Extensions/GeForceWeb.kext"
-MOD_PATH="/Library/Extensions/NVDAStartupWeb.kext/Contents/Info.plist"
-MOD_KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
-DRIVERS_DIR_HINT="NVWebDrivers.pkg"
-DEVELOPER_NAME="NVIDIA Corporation"
-TEAM_ID="6KR3T733EC"
-CHANGES_MADE=false
-
-# Functions
 
 function bye {
 	printf "Complete."
@@ -115,10 +102,10 @@ function silent {
 }
 
 function clean {
-	silent rm -rf $PKG_DIR
-	silent rm -f $PKG_DST
+	silent rm -rf $EXTRACTED_PKG_DIR
+	silent rm -f $DOWNLOADED_PKG
 	silent rm -f $SQL_TMP
-	# silent rm -f $UPDATE_PLIST
+	silent rm -f $DOWNLOADED_UPDATE_PLIST
 }
 
 function error {
@@ -145,6 +132,17 @@ function on_error {
 	fi
 }
 
+# COMMAND Get_Plist_And_Exit
+
+if [ "$COMMAND" == "Get_Plist_And_Exit" ]; then
+	DESTINATION="$DIR/NvidiaUpdates.plist"
+	printf "Downloading '$DESTINATION'\n"
+	curl -o "$DESTINATION" -# $REMOTE_UPDATE_PLIST
+	on_error "Couldn't get updates data from Nvidia" $?
+	open -R "$DESTINATION"
+	exit 0
+fi
+
 function remove {
 	# Remove drivers
 	silent rm -rf /Library/Extensions/GeForce*
@@ -162,7 +160,7 @@ function remove {
 }
 
 function caches {
-	if $NO_CACHE; then
+	if $NO_CACHE_UPDATE; then
 		warning "Caches are not being updated"
 		return 0
 	fi
@@ -170,12 +168,6 @@ function caches {
 	/usr/bin/touch /Library/Extensions /System/Library/Extensions
 	/usr/sbin/kextcache -u /
 	on_error "Couldn't update caches" $?
-}
-
-function sql_add_kext {
-	printf "insert or replace into kext_policy " >> $SQL_TMP
-	printf "(team_id, bundle_id, allowed, developer_name, flags) " >> $SQL_TMP
-	printf "values (\"$TEAM_ID\",\"$1\",1,\"$DEVELOPER_NAME\",1);\n" >> $SQL_TMP
 }
 
 function ask {
@@ -191,40 +183,13 @@ function ask {
 	esac
 }
 
-function installed_version {
-	INFO_PLIST="$CHECK_INSTALLED_VERSION/Contents/Info.plist"
-	if [ -f $INFO_PLIST ]; then
-		GETINFO=$(plistb "Print :CFBundleGetInfoString" $INFO_PLIST false)
-		GETINFO="${GETINFO##* }"
-		# check version string is the format we expect
-		COUNT="${GETINFO//[^.]}"  # get . characters
-		COUNT="${#COUNT}"  # how many?
-		if [ "$COUNT" == "5" ]; then
-			# 5 dots is ok
-			echo "$GETINFO";
-			exit 0
-		fi
-	fi
-	echo "none"
-}
-
 function plistb {
 	# plistb command file fatal
 	/usr/libexec/PlistBuddy -c "$1" "$2" 2> /dev/null
 	if [ $? -ne 0 ] && [ $3 == true ]; then
-		error "plistbuddy" $?
+		error "PlistBuddy error being treated as fatal" $?
 	fi
 }
-
-# getopts -p -> get the plist then exit
-
-if [ "$FUNC" == "plist" ]; then
-	printf "Downloading '$UPDATE_PLIST'\n"
-	curl -o "$UPDATE_PLIST" -# $UPDATE_PLIST_REMOTE
-	on_error "Couldn't get updates data from Nvidia" $?
-	open -R "$UPDATE_PLIST"
-	exit 0
-fi
 
 # Check root
 
@@ -238,23 +203,25 @@ P="Filesystem Protections: disabled|System Integrity Protection status: disabled
 silent /usr/bin/grep -E "$P" <<< "$CSRUTIL"
 on_error "Is SIP enabled?" $?
 
-# getopts -m -> modify NVDARequireOS then exit
+# COMMAND Modify_NVDARequiredOS_And_Exit
 
-if [ "$FUNC" == "mod" ]; then
-	if [ -f "$MOD_PATH" ]; then
+if [ "$COMMAND" == "Modify_NVDARequiredOS_And_Exit" ]; then
+	MOD_INFO_PLIST_PATH="/Library/Extensions/NVDAStartupWeb.kext/Contents/Info.plist"
+	MOD_KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
+	if [ -f "$MOD_INFO_PLIST_PATH" ]; then
 		CHANGES_MADE=true
-		printf "Setting NVDARequiredOS to $MOD_VER_STR...\n"
-		plistb "Set $MOD_KEY $MOD_VER_STR" "$MOD_PATH" true
+		printf "Setting NVDARequiredOS to $MOD_NVDA_REQUIRED_OS...\n"
+		plistb "Set $MOD_KEY $MOD_NVDA_REQUIRED_OS" "$MOD_INFO_PLIST_PATH" true
 		caches
-		exit 0
+		bye
 	else
-		error "$MOD_PATH not found" 0
+		error "$MOD_INFO_PLIST_PATH not found" 0
 	fi
 fi
 
-# getopts -r -> uninstall then exit
+# COMMAND Uninstall_Webdrivers_And_Exit
 
-if [ "$FUNC" == "remove" ]; then
+if [ "$COMMAND" == "Uninstall_Webdrivers_And_Exit" ]; then
 	ask "Uninstall Nvidia web drivers?"
 	printf "Removing files...\n"
 	CHANGES_MADE=true
@@ -263,40 +230,71 @@ if [ "$FUNC" == "remove" ]; then
 	bye
 fi
 
-# Clean
+# UPDATER/INSTALLER
+
+DOWNLOADED_UPDATE_PLIST="$DIR/.nvwebupdates.plist"
+DOWNLOADED_PKG="$DIR/.nvweb.pkg"
+EXTRACTED_PKG_DIR="$DIR/.nvwebinstall"
+SQL_TMP="$DIR/.nvweb.sql"
+INSTALLED_VERSION="/Library/Extensions/GeForceWeb.kext/Contents/Info.plist"
+DRIVERS_DIR_HINT="NVWebDrivers.pkg"
+DEVELOPER_NAME="NVIDIA Corporation"
+TEAM_ID="6KR3T733EC"
+
+function installed_version {
+	if [ -f $INSTALLED_VERSION ]; then
+		GET_INFO=$(plistb "Print :CFBundleGetInfoString" $INSTALLED_VERSION false)
+		GET_INFO="${GET_INFO##* }"
+		# check version string is the format we expect
+		TEST="${GET_INFO//[^.]}"  # get . characters
+		TEST="${#TEST}"  # how many?
+		if [ "$TEST" == "5" ]; then
+			# 5 dots is ok
+			echo "$GET_INFO";
+			exit 0
+		fi
+	fi
+	echo "none"
+}
+
+function sql_add_kext {
+	printf "insert or replace into kext_policy " >> $SQL_TMP
+	printf "(team_id, bundle_id, allowed, developer_name, flags) " >> $SQL_TMP
+	printf "values (\"$TEAM_ID\",\"$1\",1,\"$DEVELOPER_NAME\",1);\n" >> $SQL_TMP
+}
 
 clean
 
-if [ "$FUNC" != "url" ]; then
+if [ "$COMMAND" != "User_Provided_URL" ]; then
 
 	# No URL specified, get installed web driver verison
 
-	VER=$(installed_version)
+	VERSION=$(installed_version)
 
 	# Get updates file
 
 	printf 'Checking for updates...\n'
-	curl -o $UPDATE_PLIST -s $UPDATE_PLIST_REMOTE
+	curl -o $DOWNLOADED_UPDATE_PLIST -s $REMOTE_UPDATE_PLIST
 	on_error "Couldn't get updates data from Nvidia" $?
 
 	# Check for an update
 
 	let i=0
 	while true; do
-		U_BUILD=$(plistb "Print :updates:$i:OS" "$UPDATE_PLIST" false)
+		REMOTE_MAC_OS_BUILD=$(plistb "Print :updates:$i:OS" "$DOWNLOADED_UPDATE_PLIST" false)
 		if [ $? -ne 0 ]; then
-			U_BUILD="none"
-			U_URL="none"
-			U_VER="none"
+			REMOTE_MAC_OS_BUILD="none"
+			REMOTE_URL="none"
+			REMOTE_VERSION="none"
 			break
 		fi
-		if [ "$U_BUILD" == "$BUILD" ]; then
-			U_URL=$(plistb "Print :updates:$i:downloadURL" "$UPDATE_PLIST" false)
+		if [ "$REMOTE_MAC_OS_BUILD" == "$MAC_OS_BUILD" ]; then
+			REMOTE_URL=$(plistb "Print :updates:$i:downloadURL" "$DOWNLOADED_UPDATE_PLIST" false)
 			if [ $? -ne 0 ]; then
-				U_URL="none"; fi
-			U_VER=$(plistb "Print :updates:$i:version" "$UPDATE_PLIST" false)
+				REMOTE_URL="none"; fi
+			REMOTE_VERSION=$(plistb "Print :updates:$i:version" "$DOWNLOADED_UPDATE_PLIST" false)
 			if [ $? -ne 0 ]; then
-				U_VER="none"; fi
+				REMOTE_VERSION="none"; fi
 			break
 		fi
 		let i+=1
@@ -304,15 +302,15 @@ if [ "$FUNC" != "url" ]; then
 
 	# Determine next action
 
-	if [ "$U_URL" == "none" ] || [ "$U_VER" == "none" ]; then
+	if [ "$REMOTE_URL" == "none" ] || [ "$REMOTE_VERSION" == "none" ]; then
 		# no driver available, or error during check, exit
-		printf "No driver available for $BUILD\n"
+		printf "No driver available for $MAC_OS_BUILD\n"
 		clean
 		exit 0
-	elif [ "$U_VER" == "$VER" ]; then
+	elif [ "$REMOTE_VERSION" == "$VERSION" ]; then
 		# latest already installed, exit
-		printf "$VER for $BUILD already installed\n"
-		if $REINSTALL; then
+		printf "$REMOTE_VERSION for $MAC_OS_BUILD already installed\n"
+		if [ $REINSTALL == true ]; then
 			:
 		else
 			clean
@@ -320,14 +318,14 @@ if [ "$FUNC" != "url" ]; then
 		fi
 	else
 		# found an update, proceed to installation
-		printf "Web driver $U_VER available...\n"
+		printf "Web driver $REMOTE_VERSION available...\n"
 	fi
 
 else
 
 	# invoked with -u option, proceed to installation
 
-	printf "User provided URL: $U_URL\n"
+	printf "User provided URL: $REMOTE_URL\n"
 	PROMPT_REBOOT=false
 
 fi
@@ -343,21 +341,21 @@ fi
 # Download
 
 printf "Downloading package...\n"
-/usr/bin/curl -o $PKG_DST -# $U_URL
+/usr/bin/curl -o $DOWNLOADED_PKG -# $REMOTE_URL
 on_error "Couldn't download package" $?
 
 # Extract
 
 printf "Extracting...\n"
-/usr/sbin/pkgutil --expand $PKG_DST $PKG_DIR
-cd $PKG_DIR/*$DRIVERS_DIR_HINT
+/usr/sbin/pkgutil --expand $DOWNLOADED_PKG $EXTRACTED_PKG_DIR
+cd $EXTRACTED_PKG_DIR/*$DRIVERS_DIR_HINT
 cat Payload | gunzip -dc | cpio -i
 on_error "Couldn't extract package" $?
 
 # Make SQL
 
 printf "Approving kexts...\n"
-cd $PKG_DIR/*$DRIVERS_DIR_HINT
+cd $EXTRACTED_PKG_DIR/*$DRIVERS_DIR_HINT
 KEXTS=(./Library/Extensions/*kext/)
 for KEXT in "${KEXTS[@]}"; do
 	PLIST="$KEXT/Contents/Info.plist"
@@ -378,7 +376,7 @@ if [ $? -ne 0 ]; then
 
 printf "Installing...\n"
 remove
-cd $PKG_DIR/*$DRIVERS_DIR_HINT
+cd $EXTRACTED_PKG_DIR/*$DRIVERS_DIR_HINT
 cp -r ./Library/Extensions/* /Library/Extensions
 cp -r ./System/Library/Extensions/* /System/Library/Extensions
 
