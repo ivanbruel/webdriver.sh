@@ -265,7 +265,6 @@ fi
 # Clean
 
 clean
-PROMPT="Install?"
 
 if [ "$FUNC" != "url" ]; then
 
@@ -313,7 +312,7 @@ if [ "$FUNC" != "url" ]; then
 		# latest already installed, exit
 		printf "$VER for $BUILD already installed\n"
 		if $REINSTALL; then
-			PROMPT="Re-install?"
+			:
 		else
 			clean
 			exit 0
@@ -334,7 +333,11 @@ fi
 
 # Start
 
-ask "$PROMPT"
+if [ $REINSTALL == true ]; then
+	ask "Re-install?"
+else
+	ask "Install?"
+fi
 
 # Download
 
