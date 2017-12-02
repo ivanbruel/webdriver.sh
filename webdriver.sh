@@ -355,6 +355,7 @@ on_error "Couldn't extract package" $?
 
 # Make SQL
 
+printf "Approving kexts...\n"
 cd $PKG_DIR/*$DRIVERS_DIR_HINT
 KEXTS=(./Library/Extensions/*kext/)
 for KEXT in "${KEXTS[@]}"; do
