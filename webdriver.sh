@@ -92,7 +92,7 @@ function silent {
 
 function error {
 	# error message exit_code
-	clean
+	delete_temporary_files
 	printf "Error: $1 ($2)\n"
 	if [ $CHANGES_MADE = false ]; then
 		printf "No changes were made\n"
@@ -144,7 +144,7 @@ function bye {
 	exit 0
 }
 
-function clean {
+function delete_temporary_files {
 	silent rm -rf "$EXTRACTED_PKG_DIR"
 	silent rm -f "$DOWNLOADED_PKG"
 	silent rm -f "$SQL_QUERY_FILE"
@@ -156,7 +156,7 @@ function warning {
 	printf "Warning: $1\n"
 }
 
-function remove {
+function uninstall_drivers {
 	# Remove drivers
 	silent rm -rf /Library/Extensions/GeForce*
 	silent rm -rf /Library/Extensions/NVDA*
@@ -172,7 +172,7 @@ function remove {
 	# silent rm -rf '/Library/PreferencePanes/NVIDIA Driver Manager.prefPane'
 }
 
-function caches {
+function update_caches {
 	if [ $NO_CACHE_UPDATE = true ]; then
 		warning "Caches are not being updated"
 		return 0
@@ -190,7 +190,7 @@ function ask {
 		printf "\n"
 		return 1
 	else
-		clean
+		delete_temporary_files
 		exit 0
 	fi
 }
@@ -220,7 +220,7 @@ if [ "$COMMAND" = "SET_REQUIRED_OS_AND_EXIT" ]; then
 		CHANGES_MADE=true
 		printf "Setting NVDARequiredOS to $MOD_REQUIRED_OS...\n"
 		plistb "Set $MOD_KEY $MOD_REQUIRED_OS" "$MOD_INFO_PLIST_PATH" true
-		caches
+		update_caches
 		set_nvram
 		bye
 	else
@@ -234,8 +234,8 @@ if [ "$COMMAND" = "UNINSTALL_DRIVERS_AND_EXIT" ]; then
 	ask "Uninstall Nvidia web drivers?"
 	printf "Removing files...\n"
 	CHANGES_MADE=true
-	remove
-	caches
+	uninstall_drivers
+	update_caches
 	unset_nvram
 	bye
 fi
@@ -273,7 +273,7 @@ function sql_add_kext {
 	printf "values (\"$SQL_TEAM_ID\",\"$1\",1,\"$SQL_DEVELOPER_NAME\",1);\n" >> "$SQL_QUERY_FILE"
 }
 
-clean
+delete_temporary_files
 
 if [ "$COMMAND" != "USER_PROVIDED_URL" ]; then
 
@@ -315,7 +315,7 @@ if [ "$COMMAND" != "USER_PROVIDED_URL" ]; then
 	if [ "$REMOTE_URL" = "none" ] || [ "$REMOTE_VERSION" = "none" ]; then
 		# no driver available, or error during check, exit
 		printf "No driver available for $MAC_OS_BUILD\n"
-		clean
+		delete_temporary_files
 		exit 0
 	elif [ "$REMOTE_VERSION" = "$VERSION" ]; then
 		# latest already installed, exit
@@ -323,7 +323,7 @@ if [ "$COMMAND" != "USER_PROVIDED_URL" ]; then
 		if [ $REINSTALL = true ]; then
 			:
 		else
-			clean
+			delete_temporary_files
 			exit 0
 		fi
 	else
@@ -384,14 +384,14 @@ if [ $? -ne 0 ]; then
 # Install
 
 printf "Installing...\n"
-remove
+uninstall_drivers
 cd "$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT"
 cp -r ./Library/Extensions/* /Library/Extensions
 cp -r ./System/Library/Extensions/* /System/Library/Extensions
 
 # Update caches and exit
 
-caches
+update_caches
 set_nvram
-clean
+delete_temporary_files
 bye
