@@ -50,13 +50,13 @@ let COMMAND_COUNT=0; while getopts ":hpu:rm:cf" OPTION; do
 		let COMMAND_COUNT+=1
 	elif [ "$OPTION" = "u" ]; then
 		COMMAND="USER_PROVIDED_URL"
-		REMOTE_URL=$OPTARG
+		REMOTE_URL="$OPTARG"
 		let COMMAND_COUNT+=1
 	elif [ "$OPTION" = "r" ]; then
 		COMMAND="UNINSTALL_DRIVERS_AND_EXIT"
 		let COMMAND_COUNT+=1
 	elif [ "$OPTION" = "m" ]; then
-		MOD_REQUIRED_OS=$OPTARG
+		MOD_REQUIRED_OS="$OPTARG"
 		COMMAND="SET_REQUIRED_OS_AND_EXIT"
 		let COMMAND_COUNT+=1
 	elif [ "$OPTION" = "c" ]; then
@@ -70,7 +70,7 @@ let COMMAND_COUNT=0; while getopts ":hpu:rm:cf" OPTION; do
 		exit 1
 	elif [ "$OPTION" = ":" ]; then
 		if [ $OPTARG = "m" ]; then
-			MOD_REQUIRED_OS=$MAC_OS_BUILD
+			MOD_REQUIRED_OS="$MAC_OS_BUILD"
 			COMMAND="SET_REQUIRED_OS_AND_EXIT"
 			let COMMAND_COUNT+=1
 		else
@@ -114,7 +114,7 @@ function on_error {
 if [ "$COMMAND" = "GET_PLIST_AND_EXIT" ]; then
 	DESTINATION="$DOWNLOADS_DIR/NvidiaUpdates.plist"
 	printf "Downloading '$DESTINATION'\n"
-	curl -o "$DESTINATION" -s $REMOTE_UPDATE_PLIST
+	curl -s -o "$DESTINATION" "$REMOTE_UPDATE_PLIST"
 	on_error "Couldn't get updates data from Nvidia" $?
 	open -R "$DESTINATION"
 	exit 0
@@ -136,7 +136,7 @@ on_error "Is SIP enabled?" $?
 
 function bye {
 	printf "Complete."
-	if $PROMPT_REBOOT; then
+	if [ $PROMPT_REBOOT = true ]; then
 		printf " You should reboot now.\n"
 	else
 		printf "\n"
@@ -145,10 +145,10 @@ function bye {
 }
 
 function clean {
-	silent rm -rf $EXTRACTED_PKG_DIR
-	silent rm -f $DOWNLOADED_PKG
-	silent rm -f $SQL_TMP
-	silent rm -f $DOWNLOADED_UPDATE_PLIST
+	silent rm -rf "$EXTRACTED_PKG_DIR"
+	silent rm -f "$DOWNLOADED_PKG"
+	silent rm -f "$SQL_QUERY_FILE"
+	silent rm -f "$DOWNLOADED_UPDATE_PLIST"
 }
 
 function warning {
@@ -173,7 +173,7 @@ function remove {
 }
 
 function caches {
-	if $NO_CACHE_UPDATE; then
+	if [ $NO_CACHE_UPDATE = true ]; then
 		warning "Caches are not being updated"
 		return 0
 	fi
@@ -184,16 +184,15 @@ function caches {
 }
 
 function ask {
-	printf $1
+	printf "$1"
 	read -n 1 -s -r -p " [y/N]" INPUT
-	case "$INPUT" in
-	y|Y )
+	if [ "$INPUT" = "y" ] || [ "$INPUT" = "Y" ]; then
 		printf "\n"
-		return 1 ;;
-	*)
+		return 1
+	else
 		clean
-		exit 0 ;;
-	esac
+		exit 0
+	fi
 }
 
 function plistb {
@@ -225,7 +224,7 @@ if [ "$COMMAND" = "SET_REQUIRED_OS_AND_EXIT" ]; then
 		set_nvram
 		bye
 	else
-		error "$MOD_INFO_PLIST_PATH not found" 30
+		error "$MOD_INFO_PLIST_PATH not found" 2
 	fi
 fi
 
@@ -246,22 +245,22 @@ fi
 DOWNLOADED_UPDATE_PLIST="$DOWNLOADS_DIR/.nvwebupdates.plist"
 DOWNLOADED_PKG="$DOWNLOADS_DIR/.nvweb.pkg"
 EXTRACTED_PKG_DIR="$DOWNLOADS_DIR/.nvwebinstall"
-SQL_TMP="$DOWNLOADS_DIR/.nvweb.sql"
+SQL_QUERY_FILE="$DOWNLOADS_DIR/.nvweb.sql"
+SQL_DEVELOPER_NAME="NVIDIA Corporation"
+SQL_TEAM_ID="6KR3T733EC"
 INSTALLED_VERSION="/Library/Extensions/GeForceWeb.kext/Contents/Info.plist"
 DRIVERS_DIR_HINT="NVWebDrivers.pkg"
-DEVELOPER_NAME="NVIDIA Corporation"
-TEAM_ID="6KR3T733EC"
 
 function installed_version {
 	if [ -f $INSTALLED_VERSION ]; then
-		GET_INFO=$(plistb "Print :CFBundleGetInfoString" $INSTALLED_VERSION false)
-		GET_INFO="${GET_INFO##* }"
+		GET_INFO_STRING=$(plistb "Print :CFBundleGetInfoString" "$INSTALLED_VERSION" false)
+		GET_INFO_STRING="${GET_INFO_STRING##* }"
 		# check version string is the format we expect
-		TEST="${GET_INFO//[^.]}"  # get . characters
+		TEST="${GET_INFO_STRING//[^.]}"  # get . characters
 		TEST="${#TEST}"  # how many?
 		if [ "$TEST" = "5" ]; then
 			# 5 dots is ok
-			echo "$GET_INFO";
+			echo "$GET_INFO_STRING";
 			exit 0
 		fi
 	fi
@@ -269,9 +268,9 @@ function installed_version {
 }
 
 function sql_add_kext {
-	printf "insert or replace into kext_policy " >> $SQL_TMP
-	printf "(team_id, bundle_id, allowed, developer_name, flags) " >> $SQL_TMP
-	printf "values (\"$TEAM_ID\",\"$1\",1,\"$DEVELOPER_NAME\",1);\n" >> $SQL_TMP
+	printf "insert or replace into kext_policy " >> "$SQL_QUERY_FILE"
+	printf "(team_id, bundle_id, allowed, developer_name, flags) " >> "$SQL_QUERY_FILE"
+	printf "values (\"$SQL_TEAM_ID\",\"$1\",1,\"$SQL_DEVELOPER_NAME\",1);\n" >> "$SQL_QUERY_FILE"
 }
 
 clean
@@ -285,7 +284,7 @@ if [ "$COMMAND" != "USER_PROVIDED_URL" ]; then
 	# Get updates file
 
 	printf 'Checking for updates...\n'
-	curl -o $DOWNLOADED_UPDATE_PLIST -s $REMOTE_UPDATE_PLIST
+	curl -s -o "$DOWNLOADED_UPDATE_PLIST" "$REMOTE_UPDATE_PLIST"
 	on_error "Couldn't get updates data from Nvidia" $?
 
 	# Check for an update
@@ -352,24 +351,24 @@ fi
 # Download
 
 printf "Downloading package...\n"
-/usr/bin/curl -o $DOWNLOADED_PKG -# $REMOTE_URL
+/usr/bin/curl -# -o "$DOWNLOADED_PKG" "$REMOTE_URL"
 on_error "Couldn't download package" $?
 
 # Extract
 
 printf "Extracting...\n"
-/usr/sbin/pkgutil --expand $DOWNLOADED_PKG $EXTRACTED_PKG_DIR
-cd $EXTRACTED_PKG_DIR/*$DRIVERS_DIR_HINT
+/usr/sbin/pkgutil --expand "$DOWNLOADED_PKG" "$EXTRACTED_PKG_DIR"
+cd "$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT"
 cat Payload | gunzip -dc | cpio -i
 on_error "Couldn't extract package" $?
 
 # Make SQL
 
 printf "Approving kexts...\n"
-cd $EXTRACTED_PKG_DIR/*$DRIVERS_DIR_HINT
+cd "$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT"
 KEXT_INFO_PLISTS=(./Library/Extensions/*.kext/Contents/Info.plist)
 for PLIST in "${KEXT_INFO_PLISTS[@]}"; do
-	BUNDLE_ID=$(plistb "Print :CFBundleIdentifier" $PLIST true)
+	BUNDLE_ID=$(plistb "Print :CFBundleIdentifier" "$PLIST" true)
 	sql_add_kext "$BUNDLE_ID"
 done
 sql_add_kext "com.nvidia.CUDA"
@@ -378,7 +377,7 @@ CHANGES_MADE=true
 
 # Allow kexts
 
-/usr/bin/sqlite3 /var/db/SystemPolicyConfiguration/KextPolicy < $SQL_TMP
+/usr/bin/sqlite3 /var/db/SystemPolicyConfiguration/KextPolicy < "$SQL_QUERY_FILE"
 if [ $? -ne 0 ]; then
 	warning "sqlite3 exit code $?, extensions may not be loadable"; fi
 
@@ -386,7 +385,7 @@ if [ $? -ne 0 ]; then
 
 printf "Installing...\n"
 remove
-cd $EXTRACTED_PKG_DIR/*$DRIVERS_DIR_HINT
+cd "$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT"
 cp -r ./Library/Extensions/* /Library/Extensions
 cp -r ./System/Library/Extensions/* /System/Library/Extensions
 
