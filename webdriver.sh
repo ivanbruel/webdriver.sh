@@ -188,8 +188,8 @@ function ask {
 function plistb {
 	# plistb command file fatal
 	/usr/libexec/PlistBuddy -c "$1" "$2" 2> /dev/null
-	if [ $? -ne 0 ] && [ $3 == true ]; then
-		error "PlistBuddy error being treated as fatal" $?
+	if [ $? -ne 0 ] && [ $3 = true ]; then
+		error "PlistBuddy error treated as fatal" $?
 	fi
 }
 
