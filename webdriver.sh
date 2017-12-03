@@ -370,9 +370,8 @@ on_error "Couldn't extract package" $?
 
 printf "Approving kexts...\n"
 cd $EXTRACTED_PKG_DIR/*$DRIVERS_DIR_HINT
-KEXTS=(./Library/Extensions/*kext/)
-for KEXT in "${KEXTS[@]}"; do
-	PLIST="$KEXT/Contents/Info.plist"
+KEXT_INFO_PLISTS=(./Library/Extensions/*.kext/Contents/Info.plist)
+for PLIST in "${KEXT_INFO_PLISTS[@]}"; do
 	BUNDLE_ID=$(plistb "Print :CFBundleIdentifier" $PLIST true)
 	sql_add_kext "$BUNDLE_ID"
 done
