@@ -86,45 +86,20 @@ let COMMAND_COUNT=0; while getopts ":hpu:rm:cf" OPTION; do
 	fi
 done
 
-function bye {
-	printf "Complete."
-	if $PROMPT_REBOOT; then
-		printf " You should reboot now.\n"
-	else
-		printf "\n"
-	fi
-	exit 0
-}
-
 function silent {
 	"$@" > /dev/null 2>&1
-}
-
-function clean {
-	silent rm -rf $EXTRACTED_PKG_DIR
-	silent rm -f $DOWNLOADED_PKG
-	silent rm -f $SQL_TMP
-	silent rm -f $DOWNLOADED_UPDATE_PLIST
 }
 
 function error {
 	# error message exit_code
 	clean
-	printf "Error: $1"
-	if [ $2 -ne 0 ]; then
-		printf "($2)"; fi
-	printf "\n"
+	printf "Error: $1 ($2)\n"
 	if [ $CHANGES_MADE = false ]; then
 		printf "No changes were made\n"
 	else
 		unset_nvram
 	fi
 	exit 1
-}
-
-function warning {
-	# warning message
-	printf "Warning: $1\n"
 }
 
 function on_error {
@@ -144,6 +119,42 @@ if [ "$COMMAND" = "GET_PLIST_AND_EXIT" ]; then
 	open -R "$DESTINATION"
 	exit 0
 fi
+
+# Check root
+
+if [ "$(id -u)" != "0" ]; then
+	printf "Run it as root: sudo $(basename $0) $@"
+	exit 0
+fi
+
+# Check SIP/file system permissions
+
+silent touch /System
+on_error "Is SIP enabled?" $?
+
+#
+
+function bye {
+	printf "Complete."
+	if $PROMPT_REBOOT; then
+		printf " You should reboot now.\n"
+	else
+		printf "\n"
+	fi
+	exit 0
+}
+
+function clean {
+	silent rm -rf $EXTRACTED_PKG_DIR
+	silent rm -f $DOWNLOADED_PKG
+	silent rm -f $SQL_TMP
+	silent rm -f $DOWNLOADED_UPDATE_PLIST
+}
+
+function warning {
+	# warning message
+	printf "Warning: $1\n"
+}
 
 function remove {
 	# Remove drivers
@@ -201,20 +212,6 @@ function unset_nvram {
 	/usr/sbin/nvram -d nvda_drv
 }
 
-# Check root
-
-if [ "$(id -u)" != "0" ]; then
-	printf "Run it as root: sudo $(basename $0) $@"
-	exit 0
-fi
-
-# Check SIP
-
-CSRUTIL_STATUS=$(/usr/bin/csrutil status)
-SIP_TEST_STRING="Filesystem Protections: disabled|System Integrity Protection status: disabled."
-silent /usr/bin/grep -E "$SIP_TEST_STRING" <<< "$CSRUTIL_STATUS"
-on_error "Is SIP enabled?" $?
-
 # COMMAND SET_REQUIRED_OS_AND_EXIT
 
 if [ "$COMMAND" = "SET_REQUIRED_OS_AND_EXIT" ]; then
@@ -228,7 +225,7 @@ if [ "$COMMAND" = "SET_REQUIRED_OS_AND_EXIT" ]; then
 		set_nvram
 		bye
 	else
-		error "$MOD_INFO_PLIST_PATH not found" 0
+		error "$MOD_INFO_PLIST_PATH not found" 30
 	fi
 fi
 
