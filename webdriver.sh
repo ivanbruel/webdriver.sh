@@ -41,35 +41,35 @@ function usage {
 	echo "          -m [build]    Modify the current driver's NVDARequiredOS"
 }
 
-	if [ "$OPTION" == "h" ]; then
 let COMMAND_COUNT=0; while getopts ":hpu:rm:cf" OPTION; do
+	if [ "$OPTION" = "h" ]; then
 		usage
 		exit 0
-	elif [ "$OPTION" == "p" ]; then
+	elif [ "$OPTION" = "p" ]; then
 		COMMAND="Get_Plist_And_Exit"
-	elif [ "$OPTION" == "u" ]; then
 		let COMMAND_COUNT+=1
+	elif [ "$OPTION" = "u" ]; then
 		COMMAND="User_Provided_URL"
 		REMOTE_URL=$OPTARG
-	elif [ "$OPTION" == "r" ]; then
 		let COMMAND_COUNT+=1
+	elif [ "$OPTION" = "r" ]; then
 		COMMAND="Uninstall_Webdrivers_And_Exit"
-	elif [ "$OPTION" == "m" ]; then
 		let COMMAND_COUNT+=1
+	elif [ "$OPTION" = "m" ]; then
 		MOD_NVDA_REQUIRED_OS=$OPTARG
 		COMMAND="Modify_NVDARequiredOS_And_Exit"
-	elif [ "$OPTION" == "c" ]; then
 		let COMMAND_COUNT+=1
+	elif [ "$OPTION" = "c" ]; then
 		NO_CACHE_UPDATE=true
 		PROMPT_REBOOT=false
-	elif [ "$OPTION" == "f" ]; then
+	elif [ "$OPTION" = "f" ]; then
 		REINSTALL=true
-	elif [ "$OPTION" == "?" ]; then
+	elif [ "$OPTION" = "?" ]; then
 		printf "Invalid option: -$OPTARG\n"
 		usage
 		exit 1
-	elif [ "$OPTION" == ":" ]; then
-		if [ $OPTARG == "m" ]; then
+	elif [ "$OPTION" = ":" ]; then
+		if [ $OPTARG = "m" ]; then
 			MOD_NVDA_REQUIRED_OS=$MAC_OS_BUILD
 			COMMAND="Modify_NVDARequiredOS_And_Exit"
 			let COMMAND_COUNT+=1
@@ -114,7 +114,7 @@ function error {
 	if [ $2 -ne 0 ]; then
 		printf "($2)"; fi
 	printf "\n"
-	if [ $CHANGES_MADE == false ]; then
+	if [ $CHANGES_MADE = false ]; then
 		printf "No changes were made\n"
 	else
 		unset_nvram
@@ -136,7 +136,7 @@ function on_error {
 
 # COMMAND Get_Plist_And_Exit
 
-if [ "$COMMAND" == "Get_Plist_And_Exit" ]; then
+if [ "$COMMAND" = "Get_Plist_And_Exit" ]; then
 	DESTINATION="$DOWNLOADS_DIR/NvidiaUpdates.plist"
 	printf "Downloading '$DESTINATION'\n"
 	curl -o "$DESTINATION" -# $REMOTE_UPDATE_PLIST
@@ -215,7 +215,7 @@ on_error "Is SIP enabled?" $?
 
 # COMMAND Modify_NVDARequiredOS_And_Exit
 
-if [ "$COMMAND" == "Modify_NVDARequiredOS_And_Exit" ]; then
+if [ "$COMMAND" = "Modify_NVDARequiredOS_And_Exit" ]; then
 	MOD_INFO_PLIST_PATH="/Library/Extensions/NVDAStartupWeb.kext/Contents/Info.plist"
 	MOD_KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
 	if [ -f "$MOD_INFO_PLIST_PATH" ]; then
@@ -232,7 +232,7 @@ fi
 
 # COMMAND Uninstall_Webdrivers_And_Exit
 
-if [ "$COMMAND" == "Uninstall_Webdrivers_And_Exit" ]; then
+if [ "$COMMAND" = "Uninstall_Webdrivers_And_Exit" ]; then
 	ask "Uninstall Nvidia web drivers?"
 	printf "Removing files...\n"
 	CHANGES_MADE=true
@@ -260,7 +260,7 @@ function installed_version {
 		# check version string is the format we expect
 		TEST="${GET_INFO//[^.]}"  # get . characters
 		TEST="${#TEST}"  # how many?
-		if [ "$TEST" == "5" ]; then
+		if [ "$TEST" = "5" ]; then
 			# 5 dots is ok
 			echo "$GET_INFO";
 			exit 0
@@ -300,7 +300,7 @@ if [ "$COMMAND" != "User_Provided_URL" ]; then
 			REMOTE_VERSION="none"
 			break
 		fi
-		if [ "$REMOTE_MAC_OS_BUILD" == "$MAC_OS_BUILD" ]; then
+		if [ "$REMOTE_MAC_OS_BUILD" = "$MAC_OS_BUILD" ]; then
 			REMOTE_URL=$(plistb "Print :updates:$i:downloadURL" "$DOWNLOADED_UPDATE_PLIST" false)
 			if [ $? -ne 0 ]; then
 				REMOTE_URL="none"; fi
@@ -314,15 +314,15 @@ if [ "$COMMAND" != "User_Provided_URL" ]; then
 
 	# Determine next action
 
-	if [ "$REMOTE_URL" == "none" ] || [ "$REMOTE_VERSION" == "none" ]; then
+	if [ "$REMOTE_URL" = "none" ] || [ "$REMOTE_VERSION" = "none" ]; then
 		# no driver available, or error during check, exit
 		printf "No driver available for $MAC_OS_BUILD\n"
 		clean
 		exit 0
-	elif [ "$REMOTE_VERSION" == "$VERSION" ]; then
+	elif [ "$REMOTE_VERSION" = "$VERSION" ]; then
 		# latest already installed, exit
 		printf "$REMOTE_VERSION for $MAC_OS_BUILD already installed\n"
-		if [ $REINSTALL == true ]; then
+		if [ $REINSTALL = true ]; then
 			:
 		else
 			clean
@@ -344,7 +344,7 @@ fi
 
 # Start
 
-if [ $REINSTALL == true ]; then
+if [ $REINSTALL = true ]; then
 	ask "Re-install?"
 else
 	ask "Install?"
