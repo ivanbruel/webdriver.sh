@@ -24,7 +24,7 @@ if [ $? -ne 0 ]; then
 fi
 
 MAC_OS_BUILD=$(/usr/bin/sw_vers -buildVersion)
-DIR=~/Downloads
+DOWNLOADS_DIR=~/Downloads
 REMOTE_UPDATE_PLIST="https://gfestage.nvidia.com/mac-update"
 CHANGES_MADE=false
 PROMPT_REBOOT=true
@@ -41,26 +41,25 @@ function usage {
 	echo "          -m [build]    Modify the current driver's NVDARequiredOS"
 }
 
-let N=0
-while getopts ":hpu:rm:cf" OPTION; do
 	if [ "$OPTION" == "h" ]; then
+let COMMAND_COUNT=0; while getopts ":hpu:rm:cf" OPTION; do
 		usage
 		exit 0
 	elif [ "$OPTION" == "p" ]; then
 		COMMAND="Get_Plist_And_Exit"
-		let N+=1
 	elif [ "$OPTION" == "u" ]; then
+		let COMMAND_COUNT+=1
 		COMMAND="User_Provided_URL"
 		REMOTE_URL=$OPTARG
-		let N+=1
 	elif [ "$OPTION" == "r" ]; then
+		let COMMAND_COUNT+=1
 		COMMAND="Uninstall_Webdrivers_And_Exit"
-		let N+=1
 	elif [ "$OPTION" == "m" ]; then
+		let COMMAND_COUNT+=1
 		MOD_NVDA_REQUIRED_OS=$OPTARG
 		COMMAND="Modify_NVDARequiredOS_And_Exit"
-		let N+=1
 	elif [ "$OPTION" == "c" ]; then
+		let COMMAND_COUNT+=1
 		NO_CACHE_UPDATE=true
 		PROMPT_REBOOT=false
 	elif [ "$OPTION" == "f" ]; then
@@ -73,19 +72,19 @@ while getopts ":hpu:rm:cf" OPTION; do
 		if [ $OPTARG == "m" ]; then
 			MOD_NVDA_REQUIRED_OS=$MAC_OS_BUILD
 			COMMAND="Modify_NVDARequiredOS_And_Exit"
-			let N+=1
+			let COMMAND_COUNT+=1
 		else
 			printf "Missing parameter\n"
 			usage
 			exit 1
 		fi
 	fi
+	if [ $COMMAND_COUNT -gt 1 ]; then
+		printf "Too many options\n"
+		usage
+		exit 1
+	fi
 done
-if [ $N -gt 1 ]; then
-	printf "Too many options\n"
-	usage
-	exit 1
-fi
 
 function bye {
 	printf "Complete."
@@ -138,7 +137,7 @@ function on_error {
 # COMMAND Get_Plist_And_Exit
 
 if [ "$COMMAND" == "Get_Plist_And_Exit" ]; then
-	DESTINATION="$DIR/NvidiaUpdates.plist"
+	DESTINATION="$DOWNLOADS_DIR/NvidiaUpdates.plist"
 	printf "Downloading '$DESTINATION'\n"
 	curl -o "$DESTINATION" -# $REMOTE_UPDATE_PLIST
 	on_error "Couldn't get updates data from Nvidia" $?
@@ -175,8 +174,8 @@ function caches {
 
 function ask {
 	printf $1
-	read -n 1 -s -r -p " [y/N]" input
-	case "$input" in
+	read -n 1 -s -r -p " [y/N]" INPUT
+	case "$INPUT" in
 	y|Y )
 		printf "\n"
 		return 1 ;;
@@ -209,9 +208,9 @@ if [ "$(id -u)" != "0" ]; then
 
 # Check SIP
 
-CSRUTIL=$(/usr/bin/csrutil status)
-P="Filesystem Protections: disabled|System Integrity Protection status: disabled."
-silent /usr/bin/grep -E "$P" <<< "$CSRUTIL"
+CSRUTIL_STATUS=$(/usr/bin/csrutil status)
+SIP_TEST_STRING="Filesystem Protections: disabled|System Integrity Protection status: disabled."
+silent /usr/bin/grep -E "$SIP_TEST_STRING" <<< "$CSRUTIL_STATUS"
 on_error "Is SIP enabled?" $?
 
 # COMMAND Modify_NVDARequiredOS_And_Exit
@@ -245,10 +244,10 @@ fi
 
 # UPDATER/INSTALLER
 
-DOWNLOADED_UPDATE_PLIST="$DIR/.nvwebupdates.plist"
-DOWNLOADED_PKG="$DIR/.nvweb.pkg"
-EXTRACTED_PKG_DIR="$DIR/.nvwebinstall"
-SQL_TMP="$DIR/.nvweb.sql"
+DOWNLOADED_UPDATE_PLIST="$DOWNLOADS_DIR/.nvwebupdates.plist"
+DOWNLOADED_PKG="$DOWNLOADS_DIR/.nvweb.pkg"
+EXTRACTED_PKG_DIR="$DOWNLOADS_DIR/.nvwebinstall"
+SQL_TMP="$DOWNLOADS_DIR/.nvweb.sql"
 INSTALLED_VERSION="/Library/Extensions/GeForceWeb.kext/Contents/Info.plist"
 DRIVERS_DIR_HINT="NVWebDrivers.pkg"
 DEVELOPER_NAME="NVIDIA Corporation"
