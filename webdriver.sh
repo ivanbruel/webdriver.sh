@@ -139,7 +139,7 @@ function on_error {
 if [ "$COMMAND" = "GET_PLIST_AND_EXIT" ]; then
 	DESTINATION="$DOWNLOADS_DIR/NvidiaUpdates.plist"
 	printf "Downloading '$DESTINATION'\n"
-	curl -o "$DESTINATION" -# $REMOTE_UPDATE_PLIST
+	curl -o "$DESTINATION" -s $REMOTE_UPDATE_PLIST
 	on_error "Couldn't get updates data from Nvidia" $?
 	open -R "$DESTINATION"
 	exit 0
