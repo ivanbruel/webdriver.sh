@@ -204,7 +204,9 @@ function unset_nvram {
 # Check root
 
 if [ "$(id -u)" != "0" ]; then
-	error "Run it as root: sudo $(basename $0) $@" 0; fi
+	printf "Run it as root: sudo $(basename $0) $@"
+	exit 0
+fi
 
 # Check SIP
 
