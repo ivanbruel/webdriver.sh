@@ -46,18 +46,18 @@ let COMMAND_COUNT=0; while getopts ":hpu:rm:cf" OPTION; do
 		usage
 		exit 0
 	elif [ "$OPTION" = "p" ]; then
-		COMMAND="Get_Plist_And_Exit"
+		COMMAND="GET_PLIST_AND_EXIT"
 		let COMMAND_COUNT+=1
 	elif [ "$OPTION" = "u" ]; then
-		COMMAND="User_Provided_URL"
+		COMMAND="USER_PROVIDED_URL"
 		REMOTE_URL=$OPTARG
 		let COMMAND_COUNT+=1
 	elif [ "$OPTION" = "r" ]; then
-		COMMAND="Uninstall_Webdrivers_And_Exit"
+		COMMAND="UNINSTALL_DRIVERS_AND_EXIT"
 		let COMMAND_COUNT+=1
 	elif [ "$OPTION" = "m" ]; then
-		MOD_NVDA_REQUIRED_OS=$OPTARG
-		COMMAND="Modify_NVDARequiredOS_And_Exit"
+		MOD_REQUIRED_OS=$OPTARG
+		COMMAND="SET_REQUIRED_OS_AND_EXIT"
 		let COMMAND_COUNT+=1
 	elif [ "$OPTION" = "c" ]; then
 		NO_CACHE_UPDATE=true
@@ -70,8 +70,8 @@ let COMMAND_COUNT=0; while getopts ":hpu:rm:cf" OPTION; do
 		exit 1
 	elif [ "$OPTION" = ":" ]; then
 		if [ $OPTARG = "m" ]; then
-			MOD_NVDA_REQUIRED_OS=$MAC_OS_BUILD
-			COMMAND="Modify_NVDARequiredOS_And_Exit"
+			MOD_REQUIRED_OS=$MAC_OS_BUILD
+			COMMAND="SET_REQUIRED_OS_AND_EXIT"
 			let COMMAND_COUNT+=1
 		else
 			printf "Missing parameter\n"
@@ -134,9 +134,9 @@ function on_error {
 	fi
 }
 
-# COMMAND Get_Plist_And_Exit
+# COMMAND GET_PLIST_AND_EXIT
 
-if [ "$COMMAND" = "Get_Plist_And_Exit" ]; then
+if [ "$COMMAND" = "GET_PLIST_AND_EXIT" ]; then
 	DESTINATION="$DOWNLOADS_DIR/NvidiaUpdates.plist"
 	printf "Downloading '$DESTINATION'\n"
 	curl -o "$DESTINATION" -# $REMOTE_UPDATE_PLIST
@@ -213,15 +213,15 @@ SIP_TEST_STRING="Filesystem Protections: disabled|System Integrity Protection st
 silent /usr/bin/grep -E "$SIP_TEST_STRING" <<< "$CSRUTIL_STATUS"
 on_error "Is SIP enabled?" $?
 
-# COMMAND Modify_NVDARequiredOS_And_Exit
+# COMMAND SET_REQUIRED_OS_AND_EXIT
 
-if [ "$COMMAND" = "Modify_NVDARequiredOS_And_Exit" ]; then
+if [ "$COMMAND" = "SET_REQUIRED_OS_AND_EXIT" ]; then
 	MOD_INFO_PLIST_PATH="/Library/Extensions/NVDAStartupWeb.kext/Contents/Info.plist"
 	MOD_KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
 	if [ -f "$MOD_INFO_PLIST_PATH" ]; then
 		CHANGES_MADE=true
-		printf "Setting NVDARequiredOS to $MOD_NVDA_REQUIRED_OS...\n"
-		plistb "Set $MOD_KEY $MOD_NVDA_REQUIRED_OS" "$MOD_INFO_PLIST_PATH" true
+		printf "Setting NVDARequiredOS to $MOD_REQUIRED_OS...\n"
+		plistb "Set $MOD_KEY $MOD_REQUIRED_OS" "$MOD_INFO_PLIST_PATH" true
 		caches
 		set_nvram
 		bye
@@ -230,9 +230,9 @@ if [ "$COMMAND" = "Modify_NVDARequiredOS_And_Exit" ]; then
 	fi
 fi
 
-# COMMAND Uninstall_Webdrivers_And_Exit
+# COMMAND UNINSTALL_DRIVERS_AND_EXIT
 
-if [ "$COMMAND" = "Uninstall_Webdrivers_And_Exit" ]; then
+if [ "$COMMAND" = "UNINSTALL_DRIVERS_AND_EXIT" ]; then
 	ask "Uninstall Nvidia web drivers?"
 	printf "Removing files...\n"
 	CHANGES_MADE=true
@@ -277,7 +277,7 @@ function sql_add_kext {
 
 clean
 
-if [ "$COMMAND" != "User_Provided_URL" ]; then
+if [ "$COMMAND" != "USER_PROVIDED_URL" ]; then
 
 	# No URL specified, get installed web driver verison
 
