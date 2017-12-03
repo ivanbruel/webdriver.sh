@@ -1,4 +1,5 @@
 #!/bin/bash
+clear
 FILE="webdriver.sh"
 INSTALLPATH="/usr/local/bin/"
 COMMAND="webdriver"
@@ -11,4 +12,5 @@ else
 	exit 1
 fi
 chmod +x "$INSTALLPATH"
-exit $?
+read -n 1 -s -r -p "Press any key to exit" R
+clear
