@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # webdriver.sh - bash script for managing Nvidia's web drivers
-# Copyright (C) 2017 vulgo
+# Copyright © 2017 vulgo
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -114,7 +114,7 @@ function on_error {
 if [ "$COMMAND" = "GET_PLIST_AND_EXIT" ]; then
 	DESTINATION="$DOWNLOADS_DIR/NvidiaUpdates.plist"
 	printf "Downloading '$DESTINATION'\n"
-	curl -s -o "$DESTINATION" "$REMOTE_UPDATE_PLIST"
+	curl --connect-timeout 15 -s -m 45 -o "$DESTINATION" "$REMOTE_UPDATE_PLIST"
 	on_error "Couldn't get updates data from Nvidia" $?
 	open -R "$DESTINATION"
 	exit 0
@@ -284,7 +284,7 @@ if [ "$COMMAND" != "USER_PROVIDED_URL" ]; then
 	# Get updates file
 
 	printf 'Checking for updates...\n'
-	curl -s -o "$DOWNLOADED_UPDATE_PLIST" "$REMOTE_UPDATE_PLIST"
+	curl --connect-timeout 15 -s -m 45 -o "$DOWNLOADED_UPDATE_PLIST" "$REMOTE_UPDATE_PLIST"
 	on_error "Couldn't get updates data from Nvidia" $?
 
 	# Check for an update
@@ -351,7 +351,7 @@ fi
 # Download
 
 printf "Downloading package...\n"
-/usr/bin/curl -# -o "$DOWNLOADED_PKG" "$REMOTE_URL"
+/usr/bin/curl --connect-timeout 15 -# -o "$DOWNLOADED_PKG" "$REMOTE_URL"
 on_error "Couldn't download package" $?
 
 # Extract
