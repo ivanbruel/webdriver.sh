@@ -307,6 +307,12 @@ if [ "$COMMAND" != "USER_PROVIDED_URL" ]; then
 				REMOTE_VERSION="none"; fi
 			break
 		fi
+		if [ $i -gt 200 ]; then
+			REMOTE_MAC_OS_BUILD="none"
+			REMOTE_URL="none"
+			REMOTE_VERSION="none"
+			break;
+		fi
 		let i+=1
 	done;
 
