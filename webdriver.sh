@@ -30,6 +30,14 @@ CHANGES_MADE=false
 PROMPT_REBOOT=true
 NO_CACHE_UPDATE=false
 REINSTALL=false
+DOWNLOADED_UPDATE_PLIST="$DOWNLOADS_DIR/.nvwebupdates.plist"
+DOWNLOADED_PKG="$DOWNLOADS_DIR/.nvweb.pkg"
+EXTRACTED_PKG_DIR="$DOWNLOADS_DIR/.nvwebinstall"
+SQL_QUERY_FILE="$DOWNLOADS_DIR/.nvweb.sql"
+SQL_DEVELOPER_NAME="NVIDIA Corporation"
+SQL_TEAM_ID="6KR3T733EC"
+INSTALLED_VERSION="/Library/Extensions/GeForceWeb.kext/Contents/Info.plist"
+DRIVERS_DIR_HINT="NVWebDrivers.pkg"
 
 function usage {
 	echo "Usage: "$(basename $0)" [-f] [-c] [-p|-r|-u url|-m [build]]"
@@ -240,17 +248,6 @@ if [ "$COMMAND" = "UNINSTALL_DRIVERS_AND_EXIT" ]; then
 	bye
 fi
 
-# UPDATER/INSTALLER
-
-DOWNLOADED_UPDATE_PLIST="$DOWNLOADS_DIR/.nvwebupdates.plist"
-DOWNLOADED_PKG="$DOWNLOADS_DIR/.nvweb.pkg"
-EXTRACTED_PKG_DIR="$DOWNLOADS_DIR/.nvwebinstall"
-SQL_QUERY_FILE="$DOWNLOADS_DIR/.nvweb.sql"
-SQL_DEVELOPER_NAME="NVIDIA Corporation"
-SQL_TEAM_ID="6KR3T733EC"
-INSTALLED_VERSION="/Library/Extensions/GeForceWeb.kext/Contents/Info.plist"
-DRIVERS_DIR_HINT="NVWebDrivers.pkg"
-
 function installed_version {
 	if [ -f $INSTALLED_VERSION ]; then
 		GET_INFO_STRING=$(plistb "Print :CFBundleGetInfoString" "$INSTALLED_VERSION" false)
@@ -272,6 +269,8 @@ function sql_add_kext {
 	printf "(team_id, bundle_id, allowed, developer_name, flags) " >> "$SQL_QUERY_FILE"
 	printf "values (\"$SQL_TEAM_ID\",\"$1\",1,\"$SQL_DEVELOPER_NAME\",1);\n" >> "$SQL_QUERY_FILE"
 }
+
+# UPDATER/INSTALLER
 
 delete_temporary_files
 
