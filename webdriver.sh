@@ -109,6 +109,13 @@ function on_error {
 	fi
 }
 
+function delete_temporary_files {
+	silent rm -rf "$EXTRACTED_PKG_DIR"
+	silent rm -f "$DOWNLOADED_PKG"
+	silent rm -f "$SQL_QUERY_FILE"
+	silent rm -f "$DOWNLOADED_UPDATE_PLIST"
+}
+
 # COMMAND GET_PLIST_AND_EXIT
 
 if [ "$COMMAND" = "GET_PLIST_AND_EXIT" ]; then
@@ -142,13 +149,6 @@ function bye {
 		printf "\n"
 	fi
 	exit 0
-}
-
-function delete_temporary_files {
-	silent rm -rf "$EXTRACTED_PKG_DIR"
-	silent rm -f "$DOWNLOADED_PKG"
-	silent rm -f "$SQL_QUERY_FILE"
-	silent rm -f "$DOWNLOADED_UPDATE_PLIST"
 }
 
 function warning {
