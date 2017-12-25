@@ -1,6 +1,3 @@
-# Don't track
-webdriver.sh.zip
-
 # General
 .DS_Store
 .AppleDouble
