@@ -43,8 +43,8 @@ function usage {
 	echo "Usage: "$(basename $0)" [-f] [-c] [-p|-r|-u url|-m [build]]"
 	echo "          -f            Re-install"
         echo "          -c            Don't update caches"
-	echo "          -p            Get the updates plist and exit"
-	echo "          -r            Un-install Nvidia web drivers"
+	echo "          -p            Download the updates property list and exit"
+	echo "          -r            Uninstall Nvidia web drivers"
 	echo "          -u url        Install driver package at url, no version checks"
 	echo "          -m [build]    Modify the current driver's NVDARequiredOS"
 }
