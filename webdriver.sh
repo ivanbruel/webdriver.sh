@@ -255,11 +255,15 @@ function installed_version {
 		# check version string is the format we expect
 		TEST="${GET_INFO_STRING//[^.]}"  # get . characters
 		TEST="${#TEST}"  # how many?
-		if [ "$TEST" = "5" ]; then
-			# 5 dots is ok
-			echo "$GET_INFO_STRING";
-			exit 0
+		if [ "$TEST" != "5" ]; then
+			# <>5 dots is unexpected
+			warning "Current driver has unexpected version string:"
+			printf "$GET_INFO_STRING\n"
+			warning "webdriver.sh might need updating"
 		fi
+		echo "$GET_INFO_STRING";
+		exit 0
+		
 	fi
 	echo "none"
 }
