@@ -39,6 +39,6 @@ sudo webdriver [options]
 
 License
 
-This project is licensed under the terms of the GPL 3.0
+This project is licensed under the terms of the GPL version 3 or later.
 
 https://github.com/vulgo/webdriver.sh

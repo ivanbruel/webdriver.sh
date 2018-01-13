@@ -168,6 +168,7 @@ function uninstall_drivers {
 	# Remove drivers
 	silent rm -rf /Library/Extensions/GeForce*
 	silent rm -rf /Library/Extensions/NVDA*
+	silent rm -rf /Library/GPUBundles/GeForce*Web.bundle
 	silent rm -rf /System/Library/Extensions/GeForce*Web*
 	silent rm -rf /System/Library/Extensions/NVDA*Web*
 	# Un-comment the following lines to remove monitor preferences
@@ -396,6 +397,7 @@ printf "Installing...\n"
 uninstall_drivers
 cd "$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT"
 cp -r ./Library/Extensions/* /Library/Extensions
+cp -r ./System/Library/Extensions/GeForce*Web.bundle /Library/GPUBundles
 cp -r ./System/Library/Extensions/* /System/Library/Extensions
 
 # Update caches and exit
