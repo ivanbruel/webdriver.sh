@@ -358,6 +358,10 @@ else
 	ask "Install?"
 fi
 
+# Fix URL
+
+REMOTE_URL="https://images.nvidia.com/mac/pkg/${REMOTE_VERSION%%.*}/WebDriver-$REMOTE_VERSION.pkg"
+
 # Download
 
 printf "Downloading package...\n"
@@ -368,6 +372,7 @@ on_error "Couldn't download package" $?
 
 printf "Extracting...\n"
 /usr/sbin/pkgutil --expand "$DOWNLOADED_PKG" "$EXTRACTED_PKG_DIR"
+on_error "Couldn't extract package" $?
 cd "$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT"
 cat Payload | gunzip -dc | cpio -i
 on_error "Couldn't extract package" $?
