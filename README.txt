@@ -32,9 +32,11 @@ If no [build] is provided for option -m, the installed macOS's build version str
 
 Installing
 
-INSTALL.command copies webdriver.sh to /usr/local/bin/webdriver and makes it executable. With /usr/local/bin in your path:
+Install webdriver.sh with Homebrew https://brew.sh
 
-sudo webdriver [options]
+$ brew tap vulgo/repo
+$ brew install webdriver.sh
+$ sudo webdriver [options]
 
 
 License

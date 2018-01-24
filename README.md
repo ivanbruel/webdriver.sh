@@ -32,9 +32,11 @@ Current drivers will be uninstalled as part of any installation, you can customi
 
 ## Installing
 
-INSTALL.command copies webdriver.sh to /usr/local/bin/webdriver and makes it executable. With /usr/local/bin in your path:
+Install webdriver.sh with [Homebrew](https://brew.sh)
 
 ```
+brew tap vulgo/repo
+brew install webdriver.sh
 sudo webdriver [options]
 ```
 
