@@ -358,9 +358,20 @@ else
 	ask "Install?"
 fi
 
-# Fix URL
+# Check URL
 
-REMOTE_URL="https://images.nvidia.com/mac/pkg/${REMOTE_VERSION%%.*}/WebDriver-$REMOTE_VERSION.pkg"
+REMOTE_HOST=$(printf $REMOTE_URL | awk -F/ '{print $3}')
+silent /usr/bin/host $REMOTE_HOST
+if [ $? -ne 0 ]; then
+	if [ "$COMMAND" = "USER_PROVIDED_URL" ]; then
+		error "Unable to resolve host, check your URL" 400; fi
+	REMOTE_URL="https://images.nvidia.com/mac/pkg/${REMOTE_VERSION%%.*}/WebDriver-$REMOTE_VERSION.pkg"
+fi
+silent /usr/bin/curl -I $REMOTE_URL
+if [ $? -ne 0 ]; then
+	error "Error downloading package headers" $?; fi
+if [ "$COMMAND" != "USER_PROVIDED_URL" ]; then
+	printf "Using URL: $REMOTE_URL\n"; fi
 
 # Download
 
@@ -373,9 +384,15 @@ on_error "Couldn't download package" $?
 printf "Extracting...\n"
 /usr/sbin/pkgutil --expand "$DOWNLOADED_PKG" "$EXTRACTED_PKG_DIR"
 on_error "Couldn't extract package" $?
+if [ ! -d "$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT" ]; then
+	error "Couldn't find pkgutil output directory"; fi
 cd "$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT"
-cat Payload | gunzip -dc | cpio -i
+/bin/cat ./Payload | /usr/bin/gunzip -dc > ./tmp.cpio
 on_error "Couldn't extract package" $?
+/usr/bin/cpio -i < ./tmp.cpio
+on_error "Couldn't extract package" $?
+if [ ! -d ./Library/Extensions ] || [ ! -d ./System/Library/Extensions ]; then
+	error "Unexpected directory structure after extraction" 1; fi
 
 # Make SQL
 
