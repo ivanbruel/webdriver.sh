@@ -38,6 +38,7 @@ SQL_DEVELOPER_NAME="NVIDIA Corporation"
 SQL_TEAM_ID="6KR3T733EC"
 INSTALLED_VERSION="/Library/Extensions/GeForceWeb.kext/Contents/Info.plist"
 DRIVERS_DIR_HINT="NVWebDrivers.pkg"
+EGPU_SUPPORT="/Library/Extensions/NVDAEGPUSupport.kext"
 
 function usage {
 	echo "Usage: "$(basename $0)" [-f] [-c] [-p|-r|-u url|-m [build]]"
@@ -166,11 +167,13 @@ function warning {
 
 function uninstall_drivers {
 	# Remove drivers
+	silent mv /Library/Extensions/NVDAEGPUSupport.kext /Library/Extensions/EGPUSupport.kext
 	silent rm -rf /Library/Extensions/GeForce*
 	silent rm -rf /Library/Extensions/NVDA*
 	silent rm -rf /Library/GPUBundles/GeForce*Web.bundle
 	silent rm -rf /System/Library/Extensions/GeForce*Web*
 	silent rm -rf /System/Library/Extensions/NVDA*Web*
+	silent mv /Library/Extensions/EGPUSupport.kext /Library/Extensions/NVDAEGPUSupport.kext
 	# Un-comment the following lines to remove monitor preferences
 	# silent rm -f /Users/*/Library/Preferences/ByHost/com.apple.windowserver*
 	# silent rm -f ~/Library/Preferences/ByHost/com.apple.windowserver*
@@ -224,11 +227,16 @@ function unset_nvram {
 
 if [ "$COMMAND" = "SET_REQUIRED_OS_AND_EXIT" ]; then
 	MOD_INFO_PLIST_PATH="/Library/Extensions/NVDAStartupWeb.kext/Contents/Info.plist"
+	EGPU_INFO_PLIST_PATH="/Library/Extensions/NVDAEGPUSupport.kext/Contents/Info.plist"
 	MOD_KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
 	if [ -f "$MOD_INFO_PLIST_PATH" ]; then
 		CHANGES_MADE=true
 		printf "Setting NVDARequiredOS to $MOD_REQUIRED_OS...\n"
 		plistb "Set $MOD_KEY $MOD_REQUIRED_OS" "$MOD_INFO_PLIST_PATH" true
+		if [ -f "$EGPU_INFO_PLIST_PATH" ]; then
+			printf "Found NVDAEGPUSupport.kext, setting NVDARequiredOS to $MOD_REQUIRED_OS...\n"
+			plistb "Set $MOD_KEY $MOD_REQUIRED_OS" "$EGPU_INFO_PLIST_PATH" true
+		fi
 		update_caches
 		set_nvram
 		bye
