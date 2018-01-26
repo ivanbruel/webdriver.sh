@@ -38,7 +38,7 @@ SQL_DEVELOPER_NAME="NVIDIA Corporation"
 SQL_TEAM_ID="6KR3T733EC"
 INSTALLED_VERSION="/Library/Extensions/GeForceWeb.kext/Contents/Info.plist"
 DRIVERS_DIR_HINT="NVWebDrivers.pkg"
-EGPU_SUPPORT="/Library/Extensions/NVDAEGPUSupport.kext"
+BREW_PREFIX=$(brew --prefix 2> /dev/null)
 
 function usage {
 	echo "Usage: "$(basename $0)" [-f] [-c] [-p|-r|-u url|-m [build]]"
@@ -174,14 +174,11 @@ function uninstall_drivers {
 	silent rm -rf /System/Library/Extensions/GeForce*Web*
 	silent rm -rf /System/Library/Extensions/NVDA*Web*
 	silent mv /Library/Extensions/EGPUSupport.kext /Library/Extensions/NVDAEGPUSupport.kext
-	# Un-comment the following lines to remove monitor preferences
-	# silent rm -f /Users/*/Library/Preferences/ByHost/com.apple.windowserver*
-	# silent rm -f ~/Library/Preferences/ByHost/com.apple.windowserver*
-	# Un-comment the following lines to remove additional files
-	# silent launchctl unload /Library/LaunchDaemons/com.nvidia.nvroothelper.plist
-	# silent rm -f /Library/LaunchDaemons/com.nvidia.nvroothelper.plist
-	# silent rm -f /Library/LaunchAgents/com.nvidia.nvagent.plist
-	# silent rm -rf '/Library/PreferencePanes/NVIDIA Driver Manager.prefPane'
+	if [ -f $BREW_PREFIX/etc/webdriver.sh/uninstall.conf ]; then
+		$BREW_PREFIX/etc/webdriver.sh/uninstall.conf
+	elif [ -f /usr/local/etc/webdriver.sh/uninstall.conf ]; then
+		/usr/local/etc/webdriver.sh/uninstall.conf
+	fi
 }
 
 function update_caches {
