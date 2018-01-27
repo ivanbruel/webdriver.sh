@@ -28,8 +28,6 @@ sudo webdriver.sh [options]
 
 If no [build] is provided for option -m, the installed macOS's build version string will be used. The -m [build] option is provided as a convenience only and should be avoided where possible.
 
-Current drivers will be uninstalled as part of any installation, you can customise the list of files that are removed by editing the script (also affecting option -r).
-
 ## Installing
 
 Install webdriver.sh with [Homebrew](https://brew.sh)
@@ -39,6 +37,10 @@ brew tap vulgo/repo
 brew install webdriver.sh
 sudo webdriver [options]
 ```
+
+## Configuration
+
+The current web drivers will be uninstalled when you install new drivers, you can remove additional files by editing \<homebrew prefix\>/etc/webdriver.sh/uninstall.conf
 
 ## License
 
