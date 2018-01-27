@@ -187,9 +187,13 @@ function update_caches {
 		return 0
 	fi
 	printf "Updating caches...\n"
-	/usr/bin/touch /Library/Extensions /System/Library/Extensions
-	/usr/sbin/kextcache -u /
-	on_error "Couldn't update caches" $?
+	KERNEL_CACHE=$(/usr/sbin/kextcache -i /)
+	echo $KERNEL_CACHE | grep "KernelCache ID"
+	if [ $? -ne 0 ]; then
+		warning "There was a problem rebuilding system caches"
+		printf "\nTo try again use:\nsudo kextcache -i /\n\n"
+		PROMPT_REBOOT=false
+	fi	 
 }
 
 function ask {
