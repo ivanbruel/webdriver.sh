@@ -39,6 +39,7 @@ SQL_TEAM_ID="6KR3T733EC"
 INSTALLED_VERSION="/Library/Extensions/GeForceWeb.kext/Contents/Info.plist"
 DRIVERS_DIR_HINT="NVWebDrivers.pkg"
 BREW_PREFIX=$(brew --prefix 2> /dev/null)
+let CACHES_ERROR=0
 
 function usage {
 	echo "Usage: "$(basename $0)" [-f] [-c] [-p|-r|-u url|-m [build]]"
@@ -157,7 +158,7 @@ function bye {
 	else
 		printf "\n"
 	fi
-	exit 0
+	exit $CACHES_ERROR
 }
 
 function warning {
@@ -187,10 +188,23 @@ function update_caches {
 		return 0
 	fi
 	printf "Updating caches...\n"
-	KERNEL_CACHE=$(/usr/sbin/kextcache -i /)
-	echo $KERNEL_CACHE | grep "KernelCache ID"
+	KERNEL_CACHE=$(/usr/sbin/kextcache -v 2 -i / 2>&1)
+	echo $KERNEL_CACHE | grep "Created prelinked kernel" > /dev/null 2>&1
 	if [ $? -ne 0 ]; then
-		warning "There was a problem rebuilding system caches"
+		warning "There was a problem creating the prelinked kernel"
+		let CACHES_ERROR=1
+	fi
+	echo $KERNEL_CACHE | grep "caches updated for /System/Library/Extensions" > /dev/null 2>&1
+	if [ $? -ne 0 ]; then
+		warning "There was a problem updating directory caches for /System/Library/Extensions"
+		let CACHES_ERROR=1
+	fi
+	echo $KERNEL_CACHE | grep "caches updated for /Library/Extensions" > /dev/null 2>&1
+	if [ $? -ne 0 ]; then
+		warning "There was a problem updating directory caches for /Library/Extensions"
+		let CACHES_ERROR=1
+	fi
+	if [ $CACHES_ERROR -ne 0 ]; then
 		printf "\nTo try again use:\nsudo kextcache -i /\n\n"
 		PROMPT_REBOOT=false
 	fi	 
