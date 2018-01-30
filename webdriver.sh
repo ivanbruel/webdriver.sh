@@ -42,13 +42,14 @@ BREW_PREFIX=$(brew --prefix 2> /dev/null)
 (( COMMAND_COUNT = 0 ))
 
 function usage {
-	echo "Usage: $(basename "$0") [-f] [-c] [-p|-r|-u url|-m [build]]"
-	echo "          -f            Re-install"
-        echo "          -c            Don't update caches"
-	echo "          -p            Download the updates property list and exit"
-	echo "          -r            Uninstall Nvidia web drivers"
-	echo "          -u url        Install driver package at url, no version checks"
-	echo "          -m [build]    Modify the current driver's NVDARequiredOS"
+	echo "Usage: $(basename "$0") [-f] [-c] [-h|-p|-r|-u url|-m [build]]"
+	echo "          -f            re-install"
+        echo "          -c            don't update caches"
+	echo "          -h            print usage and exit"
+	echo "          -p            download the updates property list and exit"
+	echo "          -r            uninstall Nvidia web drivers"
+	echo "          -u url        install driver package at url, no version checks"
+	echo "          -m [build]    modify the current driver's NVDARequiredOS"
 }
 
 while getopts ":hpu:rm:cf" OPTION; do

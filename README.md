@@ -2,6 +2,16 @@
 
 Bash script for managing Nvidia's web drivers on macOS High Sierra.
 
+## Installing
+
+Install webdriver.sh with [Homebrew](https://brew.sh)
+
+```
+brew tap vulgo/repo
+brew install webdriver.sh
+sudo webdriver [options]
+```
+
 ## Usage
 
 For the script to do anything useful, 'System Integrity Protection' should be turned off.
@@ -11,11 +21,13 @@ Call the script without options to check for driver updates. If a driver is avai
 A 'Use Nvidia drivers' NVRAM variable will be set during installation, and unset upon driver removal.
 
 ```
-sudo webdriver.sh [options]
+sudo webdriver [options]
 
 -f            Re-install
 
 -c            Don't update caches
+
+-h            Print usage and exit
 
 -p            Download the updates property list and exit
 
@@ -27,16 +39,6 @@ sudo webdriver.sh [options]
 ```
 
 If no [build] is provided for option -m, the installed macOS's build version string will be used. The -m [build] option is provided as a convenience only and should be avoided where possible.
-
-## Installing
-
-Install webdriver.sh with [Homebrew](https://brew.sh)
-
-```
-brew tap vulgo/repo
-brew install webdriver.sh
-sudo webdriver [options]
-```
 
 ## Configuration
 
