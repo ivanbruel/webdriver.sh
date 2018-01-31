@@ -373,11 +373,13 @@ fi
 REMOTE_HOST=$(printf '%s' "$REMOTE_URL" | awk -F/ '{print $3}')
 if ! silent /usr/bin/host "$REMOTE_HOST"; then
 	if [ "$COMMAND" = "USER_PROVIDED_URL" ]; then
-		error "Unable to resolve host, check your URL" 400; fi
+		error "Unable to resolve host, check your URL" 44; fi
 	REMOTE_URL="https://images.nvidia.com/mac/pkg/${REMOTE_VERSION%%.*}/WebDriver-$REMOTE_VERSION.pkg"
 fi
-silent /usr/bin/curl -I $REMOTE_URL \
-	|| error "Error downloading package headers" $?
+HEADERS=$(/usr/bin/curl -I $REMOTE_URL 2>&1) \
+	|| error "Failed to download HTTP headers" 45
+echo $HEADERS | grep "content-type: application/octet-stream" > /dev/null 2>&1 \
+	|| error "Unexpected HTTP content type" 46
 if [ "$COMMAND" != "USER_PROVIDED_URL" ]; then
 	printf 'Using URL: %s\n' "$REMOTE_URL"; fi
 
