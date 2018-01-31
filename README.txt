@@ -9,7 +9,6 @@ Install webdriver.sh with Homebrew https://brew.sh
 
 $ brew tap vulgo/repo
 $ brew install webdriver.sh
-$ sudo webdriver [options]
 
 
 Usage
@@ -33,7 +32,7 @@ sudo webdriver [options]
 
 -r            Uninstall web drivers
 
--u url        Use driver package at url, no version checks
+-u URL        Use driver package at URL, no version checks
 
 -m [build]    Modify the current driver's NVDARequiredOS
 

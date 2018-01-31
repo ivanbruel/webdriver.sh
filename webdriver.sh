@@ -50,7 +50,7 @@ function usage {
 	echo "          -h            print usage and exit"
 	echo "          -p            download the updates property list and exit"
 	echo "          -r            uninstall Nvidia web drivers"
-	echo "          -u url        install driver package at url, no version checks"
+	echo "          -u URL        install driver package at URL, no version checks"
 	echo "          -m [build]    modify the current driver's NVDARequiredOS"
 }
 
