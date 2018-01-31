@@ -17,6 +17,8 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+VERSION="1.0.7"
+
 if ! /usr/bin/sw_vers -productVersion | grep "10.13" > /dev/null 2>&1; then
 	printf 'Unsupported macOS version'
 	exit 1
@@ -52,9 +54,19 @@ function usage {
 	echo "          -m [build]    modify the current driver's NVDARequiredOS"
 }
 
-while getopts ":hpu:rm:cf" OPTION; do
+function version {
+	echo "webdriver.sh $VERSION Copyright © 2017-2018 vulgo"
+	echo "This is free software: you are free to change and redistribute it."
+	echo "There is NO WARRANTY, to the extent permitted by law."
+	echo "See the GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>"
+}
+
+while getopts ":hvpu:rm:cf" OPTION; do
 	if [ "$OPTION" = "h" ]; then
 		usage
+		exit 0
+	elif [ "$OPTION" = "v" ]; then
+		version
 		exit 0
 	elif [ "$OPTION" = "p" ]; then
 		COMMAND="GET_PLIST_AND_EXIT"
@@ -277,10 +289,10 @@ function installed_version {
 }
 
 function sql_add_kext {
-	printf 'insert or replace into kext_policy ' >> "$SQL_QUERY_FILE"
-	printf '(team_id, bundle_id, allowed, developer_name, flags) ' >> "$SQL_QUERY_FILE"
-	printf 'values (\"%s\",\"%s\",1,\"%s\",1);\n' "$SQL_TEAM_ID" "$1" "$SQL_DEVELOPER_NAME" >> "$SQL_QUERY_FILE"
-}
+	printf 'insert or replace into kext_policy '
+	printf '(team_id, bundle_id, allowed, developer_name, flags) '
+	printf 'values (\"%s\",\"%s\",1,\"%s\",1);\n' "$SQL_TEAM_ID" "$1" "$SQL_DEVELOPER_NAME"
+} >> "$SQL_QUERY_FILE"
 
 # UPDATER/INSTALLER
 
