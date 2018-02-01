@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-VERSION="1.0.7"
+VERSION="1.0.8"
 
 if ! /usr/bin/sw_vers -productVersion | grep "10.13" > /dev/null 2>&1; then
 	printf 'Unsupported macOS version'
@@ -40,7 +40,6 @@ SQL_DEVELOPER_NAME="NVIDIA Corporation"
 SQL_TEAM_ID="6KR3T733EC"
 INSTALLED_VERSION="/Library/Extensions/GeForceWeb.kext/Contents/Info.plist"
 DRIVERS_DIR_HINT="NVWebDrivers.pkg"
-BREW_PREFIX=$(brew --prefix 2> /dev/null)
 (( CACHES_ERROR = 0 ))
 (( COMMAND_COUNT = 0 ))
 
@@ -176,42 +175,53 @@ function warning {
 	printf 'Warning: %s\n' "$1"
 }
 
+function uninstall_extra {
+	local BREW_PREFIX=$(brew --prefix 2> /dev/null)
+	local HOST_PREFIX="/usr/local"
+	local UNINSTALL_CONF="etc/webdriver.sh/uninstall.conf"
+	if [ -f "$BREW_PREFIX/$UNINSTALL_CONF" ]; then
+		"$BREW_PREFIX/$UNINSTALL_CONF"
+	elif [ -f "$HOST_PREFIX/$UNINSTALL_CONF" ]; then
+		"$HOST_PREFIX/$UNINSTALL_CONF"
+	fi
+}
+
 function uninstall_drivers {
+	local EGPU_DEFAULT="/Library/Extensions/NVDAEGPUSupport.kext"
+	local EGPU_RENAMED="/Library/Extensions/EGPUSupport.kext"
 	# Remove drivers
-	silent mv /Library/Extensions/NVDAEGPUSupport.kext /Library/Extensions/EGPUSupport.kext
+	silent mv "$EGPU_DEFAULT" "$EGPU_RENAMED"
 	silent rm -rf /Library/Extensions/GeForce*
 	silent rm -rf /Library/Extensions/NVDA*
 	silent rm -rf /Library/GPUBundles/GeForce*Web.bundle
 	silent rm -rf /System/Library/Extensions/GeForce*Web*
 	silent rm -rf /System/Library/Extensions/NVDA*Web*
-	silent mv /Library/Extensions/EGPUSupport.kext /Library/Extensions/NVDAEGPUSupport.kext
-	if [ -f "$BREW_PREFIX/etc/webdriver.sh/uninstall.conf" ]; then
-		"$BREW_PREFIX/etc/webdriver.sh/uninstall.conf"
-	elif [ -f /usr/local/etc/webdriver.sh/uninstall.conf ]; then
-		/usr/local/etc/webdriver.sh/uninstall.conf
-	fi
+	silent mv "$EGPU_RENAMED" "$EGPU_DEFAULT"
+	uninstall_extra
+}
+
+function caches_error {
+	# caches_error warning_message
+	warning "$1"
+	(( CACHES_ERROR = 1 ))
 }
 
 function update_caches {
-	local KERNEL_CACHE=
 	if $NO_CACHE_UPDATE; then
 		warning "Caches are not being updated"
 		return 0
 	fi
 	printf 'Updating caches...\n'
-	KERNEL_CACHE=$(/usr/sbin/kextcache -v 2 -i / 2>&1)
-	if ! echo "$KERNEL_CACHE" | grep "Created prelinked kernel" > /dev/null 2>&1; then
-		warning "There was a problem creating the prelinked kernel"
-		(( CACHES_ERROR = 1 ))
-	fi
-	if ! echo "$KERNEL_CACHE" | grep "caches updated for /System/Library/Extensions" > /dev/null 2>&1; then
-		warning "There was a problem updating directory caches for /System/Library/Extensions"
-		(( CACHES_ERROR = 1 ))
-	fi
-	if ! echo "$KERNEL_CACHE" | grep "caches updated for /Library/Extensions" > /dev/null 2>&1; then
-		warning "There was a problem updating directory caches for /Library/Extensions"
-		(( CACHES_ERROR = 1 ))
-	fi
+	local PLK="Created prelinked kernel"
+	local SLE="caches updated for /System/Library/Extensions"
+	local LE="caches updated for /Library/Extensions"
+	local RESULT=$(/usr/sbin/kextcache -v 2 -i / 2>&1)
+	echo "$RESULT" | grep "$PLK" > /dev/null 2>&1 \
+		|| caches_error "There was a problem creating the prelinked kernel"
+	echo "$RESULT" | grep "$SLE" > /dev/null 2>&1 \
+		|| caches_error "There was a problem updating directory caches for /S/L/E"
+	echo "$RESULT" | grep "$LE" > /dev/null 2>&1 \
+		|| caches_error "There was a problem updating directory caches for /L/E"
 	if (( CACHES_ERROR != 0 )); then
 		printf '\nTo try again use:\nsudo kextcache -i /\n\n'
 		PROMPT_REBOOT=false
@@ -224,7 +234,7 @@ function ask {
 	read -n 1 -srp " [y/N]" INPUT
 	if [ "$INPUT" = "y" ] || [ "$INPUT" = "Y" ]; then
 		printf '\n'
-		return 1
+		return 0
 	else
 		exit_ok
 	fi
