@@ -30,7 +30,8 @@ REMOTE_UPDATE_PLIST="https://gfestage.nvidia.com/mac-update"
 CHANGES_MADE=false
 PROMPT_REBOOT=true
 NO_CACHE_UPDATE=false
-REINSTALL=false
+REINSTALL_OPTION=false
+REINSTALL_MESSAGE=false
 DOWNLOADED_UPDATE_PLIST="$DOWNLOADS_DIR/.nvwebupdates.plist"
 DOWNLOADED_PKG="$DOWNLOADS_DIR/.nvweb.pkg"
 EXTRACTED_PKG_DIR="$DOWNLOADS_DIR/.nvwebinstall"
@@ -86,7 +87,7 @@ while getopts ":hvpu:rm:cf" OPTION; do
 		NO_CACHE_UPDATE=true
 		PROMPT_REBOOT=false
 	elif [ "$OPTION" = "f" ]; then
-		REINSTALL=true
+		REINSTALL_OPTION=true
 	elif [ "$OPTION" = "?" ]; then
 		printf 'Invalid option: -%s\n' "$OPTARG"
 		usage
@@ -140,8 +141,7 @@ function exit_ok {
 # COMMAND GET_PLIST_AND_EXIT
 
 if [ "$COMMAND" = "GET_PLIST_AND_EXIT" ]; then
-	local DESTINATION=
-	DESTINATION="$DOWNLOADS_DIR/NvidiaUpdates.plist"
+	local DESTINATION="$DOWNLOADS_DIR/NvidiaUpdates.plist"
 	printf 'Downloading %s\n' "$DESTINATION"
 	curl -s --connect-timeout 15 -m 45 -o "$DESTINATION" "$REMOTE_UPDATE_PLIST" \
 		|| error "Couldn't get updates data from Nvidia" $?
@@ -291,12 +291,10 @@ if [ "$COMMAND" = "UNINSTALL_DRIVERS_AND_EXIT" ]; then
 fi
 
 function installed_version {
-	if [ -f $INSTALLED_VERSION ]; then
+	if [ -f "$INSTALLED_VERSION" ]; then
 		GET_INFO_STRING=$(plistb "Print :CFBundleGetInfoString" "$INSTALLED_VERSION" false)
 		GET_INFO_STRING="${GET_INFO_STRING##* }"
-		echo "$GET_INFO_STRING";
-	else
-		echo ""
+		echo "$GET_INFO_STRING"
 	fi
 }
 
@@ -348,23 +346,24 @@ if [ "$COMMAND" != "USER_PROVIDED_URL" ]; then
 	elif [ "$REMOTE_VERSION" = "$VERSION" ]; then
 		# Latest already installed, exit
 		printf '%s for %s already installed\n' "$REMOTE_VERSION" "$MAC_OS_BUILD"
-		$REINSTALL || exit_ok
+		$REINSTALL_OPTION || exit_ok
+		REINSTALL_MESSAGE=true
 	else
 		# Found an update, proceed to installation
 		printf 'Web driver %s available...\n' "$REMOTE_VERSION"
 	fi
 
 else
-
+	
 	# Invoked with -u option, proceed to installation
 	printf 'User provided URL: %s\n' "$REMOTE_URL"
 	PROMPT_REBOOT=false
-
+	
 fi
 
 # Prompt install y/n
 
-if $REINSTALL; then
+if $REINSTALL_MESSAGE; then
 	ask "Re-install?"
 else
 	ask "Install?"
