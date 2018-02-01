@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # webdriver.sh - bash script for managing Nvidia's web drivers
-# Copyright © 2017 vulgo
+# Copyright © 2017-2018 vulgo
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -140,6 +140,7 @@ function exit_ok {
 # COMMAND GET_PLIST_AND_EXIT
 
 if [ "$COMMAND" = "GET_PLIST_AND_EXIT" ]; then
+	local DESTINATION=
 	DESTINATION="$DOWNLOADS_DIR/NvidiaUpdates.plist"
 	printf 'Downloading %s\n' "$DESTINATION"
 	curl -s --connect-timeout 15 -m 45 -o "$DESTINATION" "$REMOTE_UPDATE_PLIST" \
@@ -192,6 +193,7 @@ function uninstall_drivers {
 }
 
 function update_caches {
+	local KERNEL_CACHE=
 	if $NO_CACHE_UPDATE; then
 		warning "Caches are not being updated"
 		return 0
@@ -217,6 +219,7 @@ function update_caches {
 }
 
 function ask {
+	local INPUT=
 	printf "%s" "$1"
 	read -n 1 -srp " [y/N]" INPUT
 	if [ "$INPUT" = "y" ] || [ "$INPUT" = "Y" ]; then
@@ -229,10 +232,19 @@ function ask {
 
 function plistb {
 	# plistb command file fatal
-	if ! /usr/libexec/PlistBuddy -c "$1" "$2" 2> /dev/null; then
+	local RESULT=
+	if [ ! -f "$2" ]; then
 		if $3; then
-			error "PlistBuddy error treated as fatal" $?
+			error "Plist doesn't exist and errors are fatal" 90; fi
+	else 
+		if ! RESULT=$(/usr/libexec/PlistBuddy -c "$1" "$2" 2> /dev/null); then
+			if $3; then
+				error "PlistBuddy error and errors are fatal" $?; fi
+			return 0	
 		fi
+	fi
+	if [[ $RESULT ]]; then
+		echo "$RESULT"
 	fi
 }
 
@@ -284,7 +296,7 @@ function installed_version {
 		GET_INFO_STRING="${GET_INFO_STRING##* }"
 		echo "$GET_INFO_STRING";
 	else
-		echo "none"
+		echo ""
 	fi
 }
 
@@ -299,68 +311,58 @@ function sql_add_kext {
 delete_temporary_files
 
 if [ "$COMMAND" != "USER_PROVIDED_URL" ]; then
+	
+	if [[ -z $MAC_OS_BUILD ]]; then
+		error "macOS build should have been set by now" 81; fi
 
 	# No URL specified, get installed web driver verison
-
 	VERSION=$(installed_version)
 
 	# Get updates file
-
 	printf 'Checking for updates...\n'
 	curl -s --connect-timeout 15 -m 45 -o "$DOWNLOADED_UPDATE_PLIST" "$REMOTE_UPDATE_PLIST" \
 		|| error "Couldn't get updates data from Nvidia" $?
 
 	# Check for an update
-
 	(( i = 0 ))
-	while true; do
+	while (( i < 200 )); do
 		if ! REMOTE_MAC_OS_BUILD=$(plistb "Print :updates:$i:OS" "$DOWNLOADED_UPDATE_PLIST" false); then
-			REMOTE_MAC_OS_BUILD="none"
-			REMOTE_URL="none"
-			REMOTE_VERSION="none"
+			unset REMOTE_MAC_OS_BUILD
 			break
 		fi
 		if [ "$REMOTE_MAC_OS_BUILD" = "$MAC_OS_BUILD" ]; then
 			if ! REMOTE_URL=$(plistb "Print :updates:$i:downloadURL" "$DOWNLOADED_UPDATE_PLIST" false); then
-				REMOTE_URL="none"; fi
+				unset REMOTE_URL; fi
 			if ! REMOTE_VERSION=$(plistb "Print :updates:$i:version" "$DOWNLOADED_UPDATE_PLIST" false); then
-				REMOTE_VERSION="none"; fi
+				unset REMOTE_VERSION; fi
 			break
-		fi
-		if (( i > 200 )); then
-			REMOTE_MAC_OS_BUILD="none"
-			REMOTE_URL="none"
-			REMOTE_VERSION="none"
-			break;
 		fi
 		(( i += 1 ))
 	done;
-
+	
 	# Determine next action
-
-	if [ "$REMOTE_URL" = "none" ] || [ "$REMOTE_VERSION" = "none" ]; then
-		# no driver available, or error during check, exit
+	if [[ -z $REMOTE_URL ]] || [[ -z $REMOTE_VERSION ]]; then
+		# No driver available, or error during check, exit
 		printf 'No driver available for %s\n' "$MAC_OS_BUILD"
 		exit_ok
 	elif [ "$REMOTE_VERSION" = "$VERSION" ]; then
-		# latest already installed, exit
+		# Latest already installed, exit
 		printf '%s for %s already installed\n' "$REMOTE_VERSION" "$MAC_OS_BUILD"
 		$REINSTALL || exit_ok
 	else
-		# found an update, proceed to installation
+		# Found an update, proceed to installation
 		printf 'Web driver %s available...\n' "$REMOTE_VERSION"
 	fi
 
 else
 
-	# invoked with -u option, proceed to installation
-
+	# Invoked with -u option, proceed to installation
 	printf 'User provided URL: %s\n' "$REMOTE_URL"
 	PROMPT_REBOOT=false
 
 fi
 
-# Start
+# Prompt install y/n
 
 if $REINSTALL; then
 	ask "Re-install?"
@@ -376,9 +378,9 @@ if ! silent /usr/bin/host "$REMOTE_HOST"; then
 		error "Unable to resolve host, check your URL" 44; fi
 	REMOTE_URL="https://images.nvidia.com/mac/pkg/${REMOTE_VERSION%%.*}/WebDriver-$REMOTE_VERSION.pkg"
 fi
-HEADERS=$(/usr/bin/curl -I $REMOTE_URL 2>&1) \
+HEADERS=$(/usr/bin/curl -I "$REMOTE_URL" 2>&1) \
 	|| error "Failed to download HTTP headers" 45
-echo $HEADERS | grep "content-type: application/octet-stream" > /dev/null 2>&1 \
+echo "$HEADERS" | grep "content-type: application/octet-stream" > /dev/null 2>&1 \
 	|| error "Unexpected HTTP content type" 46
 if [ "$COMMAND" != "USER_PROVIDED_URL" ]; then
 	printf 'Using URL: %s\n' "$REMOTE_URL"; fi
@@ -410,8 +412,8 @@ cd "$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT" \
 	|| error "Couldn't find pkgutil output directory" $?
 KEXT_INFO_PLISTS=(./Library/Extensions/*.kext/Contents/Info.plist)
 for PLIST in "${KEXT_INFO_PLISTS[@]}"; do
-	if [ -f "$PLIST" ]; then
-		BUNDLE_ID=$(plistb "Print :CFBundleIdentifier" "$PLIST" true)
+	BUNDLE_ID=$(plistb "Print :CFBundleIdentifier" "$PLIST" true)
+	if [[ $BUNDLE_ID ]]; then
 		sql_add_kext "$BUNDLE_ID"
 	fi
 done
