@@ -43,7 +43,7 @@ DRIVERS_DIR_HINT="NVWebDrivers.pkg"
 (( CACHES_ERROR = 0 ))
 (( COMMAND_COUNT = 0 ))
 
-function usage {
+function usage() {
 	echo "Usage: $(basename "$0") [-f] [-c] [-h|-p|-r|-u url|-m [build]]"
 	echo "          -f            re-install"
         echo "          -c            don't update caches"
@@ -54,7 +54,7 @@ function usage {
 	echo "          -m [build]    modify the current driver's NVDARequiredOS"
 }
 
-function version {
+function version() {
 	echo "webdriver.sh $VERSION Copyright © 2017-2018 vulgo"
 	echo "This is free software: you are free to change and redistribute it."
 	echo "There is NO WARRANTY, to the extent permitted by law."
@@ -62,37 +62,37 @@ function version {
 }
 
 while getopts ":hvpu:rm:cf" OPTION; do
-	if [ "$OPTION" = "h" ]; then
+	if [[ $OPTION == "h" ]]; then
 		usage
 		exit 0
-	elif [ "$OPTION" = "v" ]; then
+	elif [[ $OPTION == "v" ]]; then
 		version
 		exit 0
-	elif [ "$OPTION" = "p" ]; then
+	elif [[ $OPTION == "p" ]]; then
 		COMMAND="GET_PLIST_AND_EXIT"
 		(( COMMAND_COUNT += 1 ))
-	elif [ "$OPTION" = "u" ]; then
+	elif [[ $OPTION == "u" ]]; then
 		COMMAND="USER_PROVIDED_URL"
 		REMOTE_URL="$OPTARG"
 		(( COMMAND_COUNT += 1 ))
-	elif [ "$OPTION" = "r" ]; then
+	elif [[ $OPTION == "r" ]]; then
 		COMMAND="UNINSTALL_DRIVERS_AND_EXIT"
 		(( COMMAND_COUNT += 1 ))
-	elif [ "$OPTION" = "m" ]; then
+	elif [[ $OPTION == "m" ]]; then
 		MOD_REQUIRED_OS="$OPTARG"
 		COMMAND="SET_REQUIRED_OS_AND_EXIT"
 		(( COMMAND_COUNT += 1 ))
-	elif [ "$OPTION" = "c" ]; then
+	elif [[ $OPTION == "c" ]]; then
 		NO_CACHE_UPDATE=true
 		PROMPT_REBOOT=false
-	elif [ "$OPTION" = "f" ]; then
+	elif [[ $OPTION == "f" ]]; then
 		REINSTALL_OPTION=true
-	elif [ "$OPTION" = "?" ]; then
+	elif [[ $OPTION == "?" ]]; then
 		printf 'Invalid option: -%s\n' "$OPTARG"
 		usage
 		exit 1
-	elif [ "$OPTION" = ":" ]; then
-		if [ "$OPTARG" = "m" ]; then
+	elif [[ $OPTION == ":" ]]; then
+		if [[ $OPTARG == "m" ]]; then
 			MOD_REQUIRED_OS="$MAC_OS_BUILD"
 			COMMAND="SET_REQUIRED_OS_AND_EXIT"
 			(( COMMAND_COUNT += 1 ))
@@ -109,12 +109,13 @@ while getopts ":hvpu:rm:cf" OPTION; do
 	fi
 done
 
-function silent {
+function silent() {
+	# silent $@: args... 
 	"$@" > /dev/null 2>&1
 }
 
-function error {
-	# error message exit_code
+function error() {
+	# error $1: message, $2: exit_code
 	delete_temporary_files
 	printf 'Error: %s (%s)\n' "$1" "$2"
 	if $CHANGES_MADE; then
@@ -125,22 +126,22 @@ function error {
 	exit 1
 }
 
-function delete_temporary_files {
+function delete_temporary_files() {
 	silent rm -rf "$EXTRACTED_PKG_DIR"
 	silent rm -f "$DOWNLOADED_PKG"
 	silent rm -f "$SQL_QUERY_FILE"
 	silent rm -f "$DOWNLOADED_UPDATE_PLIST"
 }
 
-function exit_ok {
+function exit_ok() {
 	delete_temporary_files
 	exit 0
 }
 
 # COMMAND GET_PLIST_AND_EXIT
 
-if [ "$COMMAND" = "GET_PLIST_AND_EXIT" ]; then
-	local DESTINATION="$DOWNLOADS_DIR/NvidiaUpdates.plist"
+if [[ $COMMAND == "GET_PLIST_AND_EXIT" ]]; then
+	DESTINATION="$DOWNLOADS_DIR/NvidiaUpdates.plist"
 	printf 'Downloading %s\n' "$DESTINATION"
 	curl -s --connect-timeout 15 -m 45 -o "$DESTINATION" "$REMOTE_UPDATE_PLIST" \
 		|| error "Couldn't get updates data from Nvidia" $?
@@ -150,7 +151,8 @@ fi
 
 # Check root
 
-if [ "$(id -u)" != "0" ]; then
+USER_ID=$(id -u)
+if [[ $USER_ID != "0" ]]; then
 	printf 'Run it as root: sudo %s %s' "$(basename "$0")" "$@"
 	exit 0
 fi
@@ -159,8 +161,7 @@ fi
 
 silent touch /System || error "Is SIP enabled?" $?
 
-
-function bye {
+function bye() {
 	printf "Complete."
 	if $PROMPT_REBOOT; then
 		printf ' You should reboot now.\n'
@@ -170,23 +171,24 @@ function bye {
 	exit $CACHES_ERROR
 }
 
-function warning {
-	# warning message
+function warning() {
+	# warning $1: message
 	printf 'Warning: %s\n' "$1"
 }
 
-function uninstall_extra {
-	local BREW_PREFIX=$(brew --prefix 2> /dev/null)
+function uninstall_extra() {
+	local BREW_PREFIX
+	BREW_PREFIX=$(brew --prefix 2> /dev/null)
 	local HOST_PREFIX="/usr/local"
 	local UNINSTALL_CONF="etc/webdriver.sh/uninstall.conf"
-	if [ -f "$BREW_PREFIX/$UNINSTALL_CONF" ]; then
+	if [[ -f "$BREW_PREFIX/$UNINSTALL_CONF" ]]; then
 		"$BREW_PREFIX/$UNINSTALL_CONF"
-	elif [ -f "$HOST_PREFIX/$UNINSTALL_CONF" ]; then
+	elif [[ -f "$HOST_PREFIX/$UNINSTALL_CONF" ]]; then
 		"$HOST_PREFIX/$UNINSTALL_CONF"
 	fi
 }
 
-function uninstall_drivers {
+function uninstall_drivers() {
 	local EGPU_DEFAULT="/Library/Extensions/NVDAEGPUSupport.kext"
 	local EGPU_RENAMED="/Library/Extensions/EGPUSupport.kext"
 	# Remove drivers
@@ -200,13 +202,13 @@ function uninstall_drivers {
 	uninstall_extra
 }
 
-function caches_error {
-	# caches_error warning_message
+function caches_error() {
+	# caches_error $1: warning_message
 	warning "$1"
 	(( CACHES_ERROR = 1 ))
 }
 
-function update_caches {
+function update_caches() {
 	if $NO_CACHE_UPDATE; then
 		warning "Caches are not being updated"
 		return 0
@@ -215,7 +217,8 @@ function update_caches {
 	local PLK="Created prelinked kernel"
 	local SLE="caches updated for /System/Library/Extensions"
 	local LE="caches updated for /Library/Extensions"
-	local RESULT=$(/usr/sbin/kextcache -v 2 -i / 2>&1)
+	local RESULT
+	RESULT=$(/usr/sbin/kextcache -v 2 -i / 2>&1)
 	echo "$RESULT" | grep "$PLK" > /dev/null 2>&1 \
 		|| caches_error "There was a problem creating the prelinked kernel"
 	echo "$RESULT" | grep "$SLE" > /dev/null 2>&1 \
@@ -228,11 +231,12 @@ function update_caches {
 	fi	 
 }
 
-function ask {
+function ask() {
+	# ask $1: message
 	local INPUT=
 	printf "%s" "$1"
 	read -n 1 -srp " [y/N]" INPUT
-	if [ "$INPUT" = "y" ] || [ "$INPUT" = "Y" ]; then
+	if [[ $INPUT == "y" || $INPUT == "Y" ]]; then
 		printf '\n'
 		return 0
 	else
@@ -240,10 +244,10 @@ function ask {
 	fi
 }
 
-function plistb {
-	# plistb command file fatal
+function plistb() {
+	# plistb $1: command, $2: file, $3: is_fatal
 	local RESULT=
-	if [ ! -f "$2" ]; then
+	if [[ ! -f $2 ]]; then
 		if $3; then
 			error "Plist doesn't exist and errors are fatal" 90; fi
 	else 
@@ -258,17 +262,17 @@ function plistb {
 	fi
 }
 
-function set_nvram {
+function set_nvram() {
 	/usr/sbin/nvram nvda_drv=1%00
 }
 
-function unset_nvram {
+function unset_nvram() {
 	/usr/sbin/nvram -d nvda_drv
 }
 
 # COMMAND SET_REQUIRED_OS_AND_EXIT
 
-if [ "$COMMAND" = "SET_REQUIRED_OS_AND_EXIT" ]; then
+if [[ $COMMAND == "SET_REQUIRED_OS_AND_EXIT" ]]; then
 	MOD_INFO_PLIST_PATH="/Library/Extensions/NVDAStartupWeb.kext/Contents/Info.plist"
 	EGPU_INFO_PLIST_PATH="/Library/Extensions/NVDAEGPUSupport.kext/Contents/Info.plist"
 	MOD_KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
@@ -290,7 +294,7 @@ fi
 
 # COMMAND UNINSTALL_DRIVERS_AND_EXIT
 
-if [ "$COMMAND" = "UNINSTALL_DRIVERS_AND_EXIT" ]; then
+if [[ $COMMAND == "UNINSTALL_DRIVERS_AND_EXIT" ]]; then
 	ask "Uninstall Nvidia web drivers?"
 	printf 'Removing files...\n'
 	CHANGES_MADE=true
@@ -300,7 +304,7 @@ if [ "$COMMAND" = "UNINSTALL_DRIVERS_AND_EXIT" ]; then
 	bye
 fi
 
-function installed_version {
+function installed_version() {
 	if [ -f "$INSTALLED_VERSION" ]; then
 		GET_INFO_STRING=$(plistb "Print :CFBundleGetInfoString" "$INSTALLED_VERSION" false)
 		GET_INFO_STRING="${GET_INFO_STRING##* }"
@@ -308,7 +312,8 @@ function installed_version {
 	fi
 }
 
-function sql_add_kext {
+function sql_add_kext() {
+	# sql_add_kext $1:bundle_id
 	printf 'insert or replace into kext_policy '
 	printf '(team_id, bundle_id, allowed, developer_name, flags) '
 	printf 'values (\"%s\",\"%s\",1,\"%s\",1);\n' "$SQL_TEAM_ID" "$1" "$SQL_DEVELOPER_NAME"
@@ -318,7 +323,7 @@ function sql_add_kext {
 
 delete_temporary_files
 
-if [ "$COMMAND" != "USER_PROVIDED_URL" ]; then
+if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 	
 	if [[ -z $MAC_OS_BUILD ]]; then
 		error "macOS build should have been set by now" 81; fi
@@ -349,11 +354,11 @@ if [ "$COMMAND" != "USER_PROVIDED_URL" ]; then
 	done;
 	
 	# Determine next action
-	if [[ -z $REMOTE_URL ]] || [[ -z $REMOTE_VERSION ]]; then
+	if [[ -z $REMOTE_URL || -z $REMOTE_VERSION ]]; then
 		# No driver available, or error during check, exit
 		printf 'No driver available for %s\n' "$MAC_OS_BUILD"
 		exit_ok
-	elif [ "$REMOTE_VERSION" = "$VERSION" ]; then
+	elif [[ $REMOTE_VERSION == "$VERSION" ]]; then
 		# Latest already installed, exit
 		printf '%s for %s already installed\n' "$REMOTE_VERSION" "$MAC_OS_BUILD"
 		$REINSTALL_OPTION || exit_ok
@@ -383,7 +388,7 @@ fi
 
 REMOTE_HOST=$(printf '%s' "$REMOTE_URL" | awk -F/ '{print $3}')
 if ! silent /usr/bin/host "$REMOTE_HOST"; then
-	if [ "$COMMAND" = "USER_PROVIDED_URL" ]; then
+	if [[ $COMMAND == "USER_PROVIDED_URL" ]]; then
 		error "Unable to resolve host, check your URL" 44; fi
 	REMOTE_URL="https://images.nvidia.com/mac/pkg/${REMOTE_VERSION%%.*}/WebDriver-$REMOTE_VERSION.pkg"
 fi
@@ -391,7 +396,7 @@ HEADERS=$(/usr/bin/curl -I "$REMOTE_URL" 2>&1) \
 	|| error "Failed to download HTTP headers" 45
 echo "$HEADERS" | grep "content-type: application/octet-stream" > /dev/null 2>&1 \
 	|| error "Unexpected HTTP content type" 46
-if [ "$COMMAND" != "USER_PROVIDED_URL" ]; then
+if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 	printf 'Using URL: %s\n' "$REMOTE_URL"; fi
 
 # Download
@@ -411,7 +416,7 @@ cd "$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT" \
 	|| error "Couldn't extract package" $?
 /usr/bin/cpio -i < ./tmp.cpio \
 	|| error "Couldn't extract package" $?
-if [ ! -d ./Library/Extensions ] || [ ! -d ./System/Library/Extensions ]; then
+if [[ ! -d ./Library/Extensions || ! -d ./System/Library/Extensions ]]; then
 	error "Unexpected directory structure after extraction" 1; fi
 
 # Make SQL
