@@ -17,7 +17,11 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-VERSION="1.0.8"
+SCRIPT_VERSION="1.0.8"
+
+R='\e[0m'	# no formatting
+B='\e[1m'	# bold
+U='\e[4m'	# underline
 
 if ! /usr/bin/sw_vers -productVersion | grep "10.13" > /dev/null 2>&1; then
 	printf 'Unsupported macOS version'
@@ -55,43 +59,44 @@ function usage() {
 }
 
 function version() {
-	echo "webdriver.sh $VERSION Copyright © 2017-2018 vulgo"
+	echo "webdriver.sh $SCRIPT_VERSION Copyright © 2017-2018 vulgo"
 	echo "This is free software: you are free to change and redistribute it."
 	echo "There is NO WARRANTY, to the extent permitted by law."
 	echo "See the GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>"
 }
 
 while getopts ":hvpu:rm:cf" OPTION; do
-	if [[ $OPTION == "h" ]]; then
+	case $OPTION in
+	"h")
 		usage
-		exit 0
-	elif [[ $OPTION == "v" ]]; then
+		exit 0;;
+	"v")
 		version
-		exit 0
-	elif [[ $OPTION == "p" ]]; then
+		exit 0;;
+	"p")
 		COMMAND="GET_PLIST_AND_EXIT"
-		(( COMMAND_COUNT += 1 ))
-	elif [[ $OPTION == "u" ]]; then
+		(( COMMAND_COUNT += 1 ));;
+	"u")
 		COMMAND="USER_PROVIDED_URL"
 		REMOTE_URL="$OPTARG"
-		(( COMMAND_COUNT += 1 ))
-	elif [[ $OPTION == "r" ]]; then
+		(( COMMAND_COUNT += 1 ));;
+	"r")
 		COMMAND="UNINSTALL_DRIVERS_AND_EXIT"
-		(( COMMAND_COUNT += 1 ))
-	elif [[ $OPTION == "m" ]]; then
+		(( COMMAND_COUNT += 1 ));;
+	"m")
 		MOD_REQUIRED_OS="$OPTARG"
 		COMMAND="SET_REQUIRED_OS_AND_EXIT"
-		(( COMMAND_COUNT += 1 ))
-	elif [[ $OPTION == "c" ]]; then
+		(( COMMAND_COUNT += 1 ));;
+	"c")
 		NO_CACHE_UPDATE=true
-		PROMPT_REBOOT=false
-	elif [[ $OPTION == "f" ]]; then
-		REINSTALL_OPTION=true
-	elif [[ $OPTION == "?" ]]; then
+		PROMPT_REBOOT=false;;
+	"f")
+		REINSTALL_OPTION=true;;
+	"?")
 		printf 'Invalid option: -%s\n' "$OPTARG"
 		usage
-		exit 1
-	elif [[ $OPTION == ":" ]]; then
+		exit 1;;
+	":")
 		if [[ $OPTARG == "m" ]]; then
 			MOD_REQUIRED_OS="$MAC_OS_BUILD"
 			COMMAND="SET_REQUIRED_OS_AND_EXIT"
@@ -100,8 +105,8 @@ while getopts ":hvpu:rm:cf" OPTION; do
 			printf 'Missing parameter\n'
 			usage
 			exit 1
-		fi
-	fi
+		fi;;
+	esac
 	if (( COMMAND_COUNT > 1)); then
 		printf 'Too many options\n'
 		usage
@@ -117,7 +122,7 @@ function silent() {
 function error() {
 	# error $1: message, $2: exit_code
 	delete_temporary_files
-	printf 'Error: %s (%s)\n' "$1" "$2"
+	printf '%bError%b: %s (%s)\n' "$U" "$R" "$1" "$2"
 	if $CHANGES_MADE; then
 		unset_nvram
 	else
@@ -127,10 +132,11 @@ function error() {
 }
 
 function delete_temporary_files() {
-	silent rm -rf "$EXTRACTED_PKG_DIR"
-	silent rm -f "$DOWNLOADED_PKG"
-	silent rm -f "$SQL_QUERY_FILE"
-	silent rm -f "$DOWNLOADED_UPDATE_PLIST"
+	local REMOVE_LIST="$EXTRACTED_PKG_DIR \
+		$DOWNLOADED_UPDATE_PLIST \
+		$DOWNLOADED_PKG \
+		$SQL_QUERY_FILE"
+	silent rm -rf $REMOVE_LIST
 }
 
 function exit_ok() {
@@ -142,9 +148,10 @@ function exit_ok() {
 
 if [[ $COMMAND == "GET_PLIST_AND_EXIT" ]]; then
 	DESTINATION="$DOWNLOADS_DIR/NvidiaUpdates.plist"
-	printf 'Downloading %s\n' "$DESTINATION"
+	printf '%bDownloading...%b\n' "$B" "$R"
 	curl -s --connect-timeout 15 -m 45 -o "$DESTINATION" "$REMOTE_UPDATE_PLIST" \
 		|| error "Couldn't get updates data from Nvidia" $?
+	printf '%s\n' "$DESTINATION"
 	open -R "$DESTINATION"
 	exit 0
 fi
@@ -162,7 +169,7 @@ fi
 silent touch /System || error "Is SIP enabled?" $?
 
 function bye() {
-	printf "Complete."
+	printf 'Complete.'
 	if $PROMPT_REBOOT; then
 		printf ' You should reboot now.\n'
 	else
@@ -173,7 +180,7 @@ function bye() {
 
 function warning() {
 	# warning $1: message
-	printf 'Warning: %s\n' "$1"
+	printf '%bWarning%b: %s\n' "$U" "$R" "$1" 
 }
 
 function uninstall_extra() {
@@ -191,13 +198,14 @@ function uninstall_extra() {
 function uninstall_drivers() {
 	local EGPU_DEFAULT="/Library/Extensions/NVDAEGPUSupport.kext"
 	local EGPU_RENAMED="/Library/Extensions/EGPUSupport.kext"
+	local REMOVE_LIST="/Library/Extensions/GeForce* \
+		/Library/Extensions/NVDA* \
+		/Library/GPUBundles/GeForce*Web.bundle \
+		/System/Library/Extensions/GeForce*Web* \
+		/System/Library/Extensions/NVDA*Web*"
 	# Remove drivers
 	silent mv "$EGPU_DEFAULT" "$EGPU_RENAMED"
-	silent rm -rf /Library/Extensions/GeForce*
-	silent rm -rf /Library/Extensions/NVDA*
-	silent rm -rf /Library/GPUBundles/GeForce*Web.bundle
-	silent rm -rf /System/Library/Extensions/GeForce*Web*
-	silent rm -rf /System/Library/Extensions/NVDA*Web*
+	silent rm -rf $REMOVE_LIST
 	silent mv "$EGPU_RENAMED" "$EGPU_DEFAULT"
 	uninstall_extra
 }
@@ -213,7 +221,7 @@ function update_caches() {
 		warning "Caches are not being updated"
 		return 0
 	fi
-	printf 'Updating caches...\n'
+	printf '%bUpdating caches...%b\n' "$B" "$R"
 	local PLK="Created prelinked kernel"
 	local SLE="caches updated for /System/Library/Extensions"
 	local LE="caches updated for /Library/Extensions"
@@ -226,7 +234,7 @@ function update_caches() {
 	echo "$RESULT" | grep "$LE" > /dev/null 2>&1 \
 		|| caches_error "There was a problem updating directory caches for /L/E"
 	if (( CACHES_ERROR != 0 )); then
-		printf '\nTo try again use:\nsudo kextcache -i /\n\n'
+		printf '\nTo try again use:\n%bsudo kextcache -i /%b\n\n' "$B" "$R"
 		PROMPT_REBOOT=false
 	fi	 
 }
@@ -234,7 +242,7 @@ function update_caches() {
 function ask() {
 	# ask $1: message
 	local INPUT=
-	printf "%s" "$1"
+	printf '%b%s%b' "$B" "$1" "$R"
 	read -n 1 -srp " [y/N]" INPUT
 	if [[ $INPUT == "y" || $INPUT == "Y" ]]; then
 		printf '\n'
@@ -276,19 +284,19 @@ if [[ $COMMAND == "SET_REQUIRED_OS_AND_EXIT" ]]; then
 	MOD_INFO_PLIST_PATH="/Library/Extensions/NVDAStartupWeb.kext/Contents/Info.plist"
 	EGPU_INFO_PLIST_PATH="/Library/Extensions/NVDAEGPUSupport.kext/Contents/Info.plist"
 	MOD_KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
-	if [ -f "$MOD_INFO_PLIST_PATH" ]; then
+	if [[ -f $MOD_INFO_PLIST_PATH ]]; then
 		CHANGES_MADE=true
-		printf 'Setting NVDARequiredOS to %s...\n' "$MOD_REQUIRED_OS"
+		printf '%bSetting NVDARequiredOS to %s...%b\n' "$B" "$MOD_REQUIRED_OS" "$R"
 		plistb "Set $MOD_KEY $MOD_REQUIRED_OS" "$MOD_INFO_PLIST_PATH" true
-		if [ -f "$EGPU_INFO_PLIST_PATH" ]; then
-			printf 'Found NVDAEGPUSupport.kext, setting NVDARequiredOS to %s...\n' "$MOD_REQUIRED_OS"
+		if [[ -f $EGPU_INFO_PLIST_PATH ]]; then
+			printf '%bFound NVDAEGPUSupport.kext, setting NVDARequiredOS to %s...%b\n' "$B" "$MOD_REQUIRED_OS" "$R"
 			plistb "Set $MOD_KEY $MOD_REQUIRED_OS" "$EGPU_INFO_PLIST_PATH" true
 		fi
 		update_caches
 		set_nvram
 		bye
 	else
-		error "$MOD_INFO_PLIST_PATH not found" 2
+		error "Nvidia driver not found" 2
 	fi
 fi
 
@@ -296,7 +304,7 @@ fi
 
 if [[ $COMMAND == "UNINSTALL_DRIVERS_AND_EXIT" ]]; then
 	ask "Uninstall Nvidia web drivers?"
-	printf 'Removing files...\n'
+	printf '%bRemoving files...%b\n' "$B" "$R"
 	CHANGES_MADE=true
 	uninstall_drivers
 	update_caches
@@ -305,7 +313,7 @@ if [[ $COMMAND == "UNINSTALL_DRIVERS_AND_EXIT" ]]; then
 fi
 
 function installed_version() {
-	if [ -f "$INSTALLED_VERSION" ]; then
+	if [[ -f $INSTALLED_VERSION ]]; then
 		GET_INFO_STRING=$(plistb "Print :CFBundleGetInfoString" "$INSTALLED_VERSION" false)
 		GET_INFO_STRING="${GET_INFO_STRING##* }"
 		echo "$GET_INFO_STRING"
@@ -332,7 +340,7 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 	VERSION=$(installed_version)
 
 	# Get updates file
-	printf 'Checking for updates...\n'
+	printf '%bChecking for updates...%b\n' "$B" "$R"
 	curl -s --connect-timeout 15 -m 45 -o "$DOWNLOADED_UPDATE_PLIST" "$REMOTE_UPDATE_PLIST" \
 		|| error "Couldn't get updates data from Nvidia" $?
 
@@ -343,7 +351,7 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 			unset REMOTE_MAC_OS_BUILD
 			break
 		fi
-		if [ "$REMOTE_MAC_OS_BUILD" = "$MAC_OS_BUILD" ]; then
+		if [[ $REMOTE_MAC_OS_BUILD == "$MAC_OS_BUILD" ]]; then
 			if ! REMOTE_URL=$(plistb "Print :updates:$i:downloadURL" "$DOWNLOADED_UPDATE_PLIST" false); then
 				unset REMOTE_URL; fi
 			if ! REMOTE_VERSION=$(plistb "Print :updates:$i:version" "$DOWNLOADED_UPDATE_PLIST" false); then
@@ -371,7 +379,7 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 else
 	
 	# Invoked with -u option, proceed to installation
-	printf 'User provided URL: %s\n' "$REMOTE_URL"
+	printf 'URL: %s\n' "$REMOTE_URL"
 	PROMPT_REBOOT=false
 	
 fi
@@ -397,17 +405,17 @@ HEADERS=$(/usr/bin/curl -I "$REMOTE_URL" 2>&1) \
 echo "$HEADERS" | grep "content-type: application/octet-stream" > /dev/null 2>&1 \
 	|| error "Unexpected HTTP content type" 46
 if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
-	printf 'Using URL: %s\n' "$REMOTE_URL"; fi
+	printf 'URL: %s\n' "$REMOTE_URL"; fi
 
 # Download
 
-printf 'Downloading package...\n'
+printf '%bDownloading package...%b\n' "$B" "$R"
 /usr/bin/curl --connect-timeout 15 -# -o "$DOWNLOADED_PKG" "$REMOTE_URL" \
 	|| error "Couldn't download package" $?
 
 # Extract
 
-printf 'Extracting...\n'
+printf '%bExtracting...%b\n' "$B" "$R"
 /usr/sbin/pkgutil --expand "$DOWNLOADED_PKG" "$EXTRACTED_PKG_DIR" \
 	|| error "Couldn't extract package" $?
 cd "$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT" \
@@ -421,7 +429,7 @@ if [[ ! -d ./Library/Extensions || ! -d ./System/Library/Extensions ]]; then
 
 # Make SQL
 
-printf 'Approving kexts...\n'
+printf '%bApproving kexts...%b\n' "$B" "$R"
 cd "$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT" \
 	|| error "Couldn't find pkgutil output directory" $?
 KEXT_INFO_PLISTS=(./Library/Extensions/*.kext/Contents/Info.plist)
@@ -442,7 +450,7 @@ CHANGES_MADE=true
 
 # Install
 
-printf 'Installing...\n'
+printf '%bInstalling...%b\n' "$B" "$R"
 uninstall_drivers
 cd "$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT" \
 	|| error "Couldn't find pkgutil output directory" $?
