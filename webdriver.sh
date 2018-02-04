@@ -48,7 +48,7 @@ DRIVERS_DIR_HINT="NVWebDrivers.pkg"
 (( COMMAND_COUNT = 0 ))
 
 function usage() {
-	echo "Usage: $(basename "$0") [-f] [-c] [-h|-p|-r|-u url|-m [build]]"
+	echo "Usage: $(basename "$0") [-f] [-c] [-s] [-h|-p|-r|-u url|-m [build]]"
 	echo "          -f            re-install"
         echo "          -c            don't update caches"
 	echo "          -h            print usage and exit"
@@ -267,6 +267,17 @@ function plistb() {
 	fi
 	if [[ $RESULT ]]; then
 		echo "$RESULT"
+		return 0
+	fi
+	return 1
+}
+
+function sha512() {
+	# checksum $1: file
+	local RESULT=
+	RESULT=$(/usr/bin/shasum -a 512 "$1" | awk '{print $1;}')
+	if [[ $RESULT ]]; then
+		printf '%s' "$RESULT"
 	fi
 }
 
@@ -376,6 +387,8 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 				unset REMOTE_URL; fi
 			if ! REMOTE_VERSION=$(plistb "Print :updates:$i:version" "$DOWNLOADED_UPDATE_PLIST" false); then
 				unset REMOTE_VERSION; fi
+			if ! REMOTE_CHECKSUM=$(plistb "Print :updates:$i:checksum" "$DOWNLOADED_UPDATE_PLIST" false); then
+				unset REMOTE_CHECKSUM; fi
 			break
 		fi
 		(( i += 1 ))
@@ -432,6 +445,20 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 printf '%bDownloading package...%b\n' "$B" "$R"
 /usr/bin/curl --connect-timeout 15 -# -o "$DOWNLOADED_PKG" "$REMOTE_URL" \
 	|| error "Couldn't download package" $?
+
+# Checksum
+
+LOCAL_CHECKSUM=$(sha512 "$DOWNLOADED_PKG")
+if [[ $REMOTE_CHECKSUM ]]; then
+	if [[  "$LOCAL_CHECKSUM" == "$REMOTE_CHECKSUM" ]]; then
+		printf 'SHA512: Verified\n'
+	else
+		error 'SHA512 verification failed' 1
+	fi
+else
+	printf 'SHA512: %s\n' "$LOCAL_CHECKSUM"
+fi
+
 
 # Extract
 
