@@ -281,23 +281,43 @@ function unset_nvram() {
 # COMMAND SET_REQUIRED_OS_AND_EXIT
 
 if [[ $COMMAND == "SET_REQUIRED_OS_AND_EXIT" ]]; then
+	(( ERROR = 0 ))
 	MOD_INFO_PLIST_PATH="/Library/Extensions/NVDAStartupWeb.kext/Contents/Info.plist"
 	EGPU_INFO_PLIST_PATH="/Library/Extensions/NVDAEGPUSupport.kext/Contents/Info.plist"
 	MOD_KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
-	if [[ -f $MOD_INFO_PLIST_PATH ]]; then
-		CHANGES_MADE=true
-		printf '%bSetting NVDARequiredOS to %s...%b\n' "$B" "$MOD_REQUIRED_OS" "$R"
-		plistb "Set $MOD_KEY $MOD_REQUIRED_OS" "$MOD_INFO_PLIST_PATH" true
-		if [[ -f $EGPU_INFO_PLIST_PATH ]]; then
+	if [[ ! -f $MOD_INFO_PLIST_PATH ]]; then
+		printf 'Nvidia driver not found\n'
+		(( ERROR = 1 ))
+	else
+		if [[ $(plistb "Print $MOD_KEY" "$MOD_INFO_PLIST_PATH" true) == "$MOD_REQUIRED_OS" ]]; then
+			printf 'NVDARequiredOS already set to %s\n' "$MOD_REQUIRED_OS"
+		else 
+			CHANGES_MADE=true
+			printf '%bSetting NVDARequiredOS to %s...%b\n' "$B" "$MOD_REQUIRED_OS" "$R"
+			plistb "Set $MOD_KEY $MOD_REQUIRED_OS" "$MOD_INFO_PLIST_PATH" true
+		fi
+	fi
+	if [[ -f $EGPU_INFO_PLIST_PATH ]]; then
+		if [[ $(plistb "Print $MOD_KEY" "$EGPU_INFO_PLIST_PATH" true) == "$MOD_REQUIRED_OS" ]]; then
+			printf 'Found NVDAEGPUSupport.kext, already set to %s\n' "$MOD_REQUIRED_OS"
+		else
+			CHANGES_MADE=true
 			printf '%bFound NVDAEGPUSupport.kext, setting NVDARequiredOS to %s...%b\n' "$B" "$MOD_REQUIRED_OS" "$R"
 			plistb "Set $MOD_KEY $MOD_REQUIRED_OS" "$EGPU_INFO_PLIST_PATH" true
 		fi
-		update_caches
-		set_nvram
-		bye
-	else
-		error "Nvidia driver not found" 2
 	fi
+	if $CHANGES_MADE; then
+		update_caches
+	else
+		printf 'No changes were made\n'
+	fi
+	if [[ $ERROR == 0 ]]; then
+		set_nvram
+	else
+		unset_nvram
+	fi
+	delete_temporary_files
+	exit $ERROR
 fi
 
 # COMMAND UNINSTALL_DRIVERS_AND_EXIT
