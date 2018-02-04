@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.0.9"
+SCRIPT_VERSION="1.0.10"
 
 R='\e[0m'	# no formatting
 B='\e[1m'	# bold
@@ -48,7 +48,7 @@ DRIVERS_DIR_HINT="NVWebDrivers.pkg"
 (( COMMAND_COUNT = 0 ))
 
 function usage() {
-	echo "Usage: $(basename "$0") [-f] [-c] [-s] [-h|-p|-r|-u url|-m [build]]"
+	echo "Usage: $(basename "$0") [-f] [-c] [-h|-p|-r|-u url|-m [build]]"
 	echo "          -f            re-install"
         echo "          -c            don't update caches"
 	echo "          -h            print usage and exit"
