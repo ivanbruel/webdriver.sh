@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.0.8"
+SCRIPT_VERSION="1.0.9"
 
 R='\e[0m'	# no formatting
 B='\e[1m'	# bold
@@ -122,7 +122,11 @@ function silent() {
 function error() {
 	# error $1: message, $2: exit_code
 	delete_temporary_files
-	printf '%bError%b: %s (%s)\n' "$U" "$R" "$1" "$2"
+	if [[ -z $2 ]]; then
+		printf '%bError%b: %s\n' "$U" "$R" "$1"
+	else
+		printf '%bError%b: %s (%s)\n' "$U" "$R" "$1" "$2"
+	fi
 	if $CHANGES_MADE; then
 		unset_nvram
 	else
@@ -252,18 +256,22 @@ function ask() {
 	fi
 }
 
+function plist_read_error() {
+	error "Couldn't read a required value from a property list"
+}
+
+function plist_write_error() {
+	error "Couldn't set a required value in a property list"
+}
+
 function plistb() {
-	# plistb $1: command, $2: file, $3: is_fatal
+	# plistb $1: command, $2: file
 	local RESULT=
-	if [[ ! -f $2 ]]; then
-		if $3; then
-			error "Plist doesn't exist and errors are fatal" 90; fi
+	if ! [[ -f "$2" ]]; then
+		return 1;
 	else 
 		if ! RESULT=$(/usr/libexec/PlistBuddy -c "$1" "$2" 2> /dev/null); then
-			if $3; then
-				error "PlistBuddy error and errors are fatal" $?; fi
-			return 0	
-		fi
+			return 1; fi
 	fi
 	if [[ $RESULT ]]; then
 		echo "$RESULT"
@@ -300,21 +308,23 @@ if [[ $COMMAND == "SET_REQUIRED_OS_AND_EXIT" ]]; then
 		printf 'Nvidia driver not found\n'
 		(( ERROR = 1 ))
 	else
-		if [[ $(plistb "Print $MOD_KEY" "$MOD_INFO_PLIST_PATH" true) == "$MOD_REQUIRED_OS" ]]; then
+		RESULT=$(plistb "Print $MOD_KEY" "$MOD_INFO_PLIST_PATH") || plist_read_error
+		if [[ "$RESULT" == "$MOD_REQUIRED_OS" ]]; then
 			printf 'NVDARequiredOS already set to %s\n' "$MOD_REQUIRED_OS"
 		else 
 			CHANGES_MADE=true
 			printf '%bSetting NVDARequiredOS to %s...%b\n' "$B" "$MOD_REQUIRED_OS" "$R"
-			plistb "Set $MOD_KEY $MOD_REQUIRED_OS" "$MOD_INFO_PLIST_PATH" true
+			plistb "Set $MOD_KEY $MOD_REQUIRED_OS" "$MOD_INFO_PLIST_PATH" || plist_write_error
 		fi
 	fi
 	if [[ -f $EGPU_INFO_PLIST_PATH ]]; then
-		if [[ $(plistb "Print $MOD_KEY" "$EGPU_INFO_PLIST_PATH" true) == "$MOD_REQUIRED_OS" ]]; then
+		RESULT=$(plistb "Print $MOD_KEY" "$EGPU_INFO_PLIST_PATH") || plist_read_error
+		if [[ "$RESULT" == "$MOD_REQUIRED_OS" ]]; then
 			printf 'Found NVDAEGPUSupport.kext, already set to %s\n' "$MOD_REQUIRED_OS"
 		else
 			CHANGES_MADE=true
 			printf '%bFound NVDAEGPUSupport.kext, setting NVDARequiredOS to %s...%b\n' "$B" "$MOD_REQUIRED_OS" "$R"
-			plistb "Set $MOD_KEY $MOD_REQUIRED_OS" "$EGPU_INFO_PLIST_PATH" true
+			plistb "Set $MOD_KEY $MOD_REQUIRED_OS" "$EGPU_INFO_PLIST_PATH"  || plist_write_error
 		fi
 	fi
 	if $CHANGES_MADE; then
@@ -345,7 +355,7 @@ fi
 
 function installed_version() {
 	if [[ -f $INSTALLED_VERSION ]]; then
-		GET_INFO_STRING=$(plistb "Print :CFBundleGetInfoString" "$INSTALLED_VERSION" false)
+		GET_INFO_STRING=$(plistb "Print :CFBundleGetInfoString" "$INSTALLED_VERSION")
 		GET_INFO_STRING="${GET_INFO_STRING##* }"
 		echo "$GET_INFO_STRING"
 	fi
@@ -365,7 +375,7 @@ delete_temporary_files
 if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 	
 	if [[ -z $MAC_OS_BUILD ]]; then
-		error "macOS build should have been set by now" 81; fi
+		error "macOS build should have been set by now"; fi
 
 	# No URL specified, get installed web driver verison
 	VERSION=$(installed_version)
@@ -378,16 +388,16 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 	# Check for an update
 	(( i = 0 ))
 	while (( i < 200 )); do
-		if ! REMOTE_MAC_OS_BUILD=$(plistb "Print :updates:$i:OS" "$DOWNLOADED_UPDATE_PLIST" false); then
+		if ! REMOTE_MAC_OS_BUILD=$(plistb "Print :updates:$i:OS" "$DOWNLOADED_UPDATE_PLIST"); then
 			unset REMOTE_MAC_OS_BUILD
 			break
 		fi
 		if [[ $REMOTE_MAC_OS_BUILD == "$MAC_OS_BUILD" ]]; then
-			if ! REMOTE_URL=$(plistb "Print :updates:$i:downloadURL" "$DOWNLOADED_UPDATE_PLIST" false); then
+			if ! REMOTE_URL=$(plistb "Print :updates:$i:downloadURL" "$DOWNLOADED_UPDATE_PLIST"); then
 				unset REMOTE_URL; fi
-			if ! REMOTE_VERSION=$(plistb "Print :updates:$i:version" "$DOWNLOADED_UPDATE_PLIST" false); then
+			if ! REMOTE_VERSION=$(plistb "Print :updates:$i:version" "$DOWNLOADED_UPDATE_PLIST"); then
 				unset REMOTE_VERSION; fi
-			if ! REMOTE_CHECKSUM=$(plistb "Print :updates:$i:checksum" "$DOWNLOADED_UPDATE_PLIST" false); then
+			if ! REMOTE_CHECKSUM=$(plistb "Print :updates:$i:checksum" "$DOWNLOADED_UPDATE_PLIST"); then
 				unset REMOTE_CHECKSUM; fi
 			break
 		fi
@@ -430,13 +440,13 @@ fi
 REMOTE_HOST=$(printf '%s' "$REMOTE_URL" | awk -F/ '{print $3}')
 if ! silent /usr/bin/host "$REMOTE_HOST"; then
 	if [[ $COMMAND == "USER_PROVIDED_URL" ]]; then
-		error "Unable to resolve host, check your URL" 44; fi
+		error "Unable to resolve host, check your URL"; fi
 	REMOTE_URL="https://images.nvidia.com/mac/pkg/${REMOTE_VERSION%%.*}/WebDriver-$REMOTE_VERSION.pkg"
 fi
 HEADERS=$(/usr/bin/curl -I "$REMOTE_URL" 2>&1) \
-	|| error "Failed to download HTTP headers" 45
+	|| error "Failed to download HTTP headers"
 echo "$HEADERS" | grep "content-type: application/octet-stream" > /dev/null 2>&1 \
-	|| error "Unexpected HTTP content type" 46
+	|| error "Unexpected HTTP content type"
 if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 	printf 'URL: %s\n' "$REMOTE_URL"; fi
 
@@ -453,7 +463,7 @@ if [[ $REMOTE_CHECKSUM ]]; then
 	if [[  "$LOCAL_CHECKSUM" == "$REMOTE_CHECKSUM" ]]; then
 		printf 'SHA512: Verified\n'
 	else
-		error 'SHA512 verification failed' 1
+		error "SHA512 verification failed"
 	fi
 else
 	printf 'SHA512: %s\n' "$LOCAL_CHECKSUM"
@@ -481,7 +491,7 @@ cd "$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT" \
 	|| error "Couldn't find pkgutil output directory" $?
 KEXT_INFO_PLISTS=(./Library/Extensions/*.kext/Contents/Info.plist)
 for PLIST in "${KEXT_INFO_PLISTS[@]}"; do
-	BUNDLE_ID=$(plistb "Print :CFBundleIdentifier" "$PLIST" true)
+	BUNDLE_ID=$(plistb "Print :CFBundleIdentifier" "$PLIST") || plist_read_error
 	if [[ $BUNDLE_ID ]]; then
 		sql_add_kext "$BUNDLE_ID"
 	fi
