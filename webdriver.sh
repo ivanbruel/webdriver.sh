@@ -274,10 +274,9 @@ function plistb() {
 			return 1; fi
 	fi
 	if [[ $RESULT ]]; then
-		echo "$RESULT"
-		return 0
+		printf "%s" "$RESULT"
 	fi
-	return 1
+	return 0
 }
 
 function sha512() {
@@ -309,7 +308,7 @@ if [[ $COMMAND == "SET_REQUIRED_OS_AND_EXIT" ]]; then
 		(( ERROR = 1 ))
 	else
 		RESULT=$(plistb "Print $MOD_KEY" "$MOD_INFO_PLIST_PATH") || plist_read_error
-		if [[ "$RESULT" == "$MOD_REQUIRED_OS" ]]; then
+		if [[ $RESULT == "$MOD_REQUIRED_OS" ]]; then
 			printf 'NVDARequiredOS already set to %s\n' "$MOD_REQUIRED_OS"
 		else 
 			CHANGES_MADE=true
@@ -319,7 +318,7 @@ if [[ $COMMAND == "SET_REQUIRED_OS_AND_EXIT" ]]; then
 	fi
 	if [[ -f $EGPU_INFO_PLIST_PATH ]]; then
 		RESULT=$(plistb "Print $MOD_KEY" "$EGPU_INFO_PLIST_PATH") || plist_read_error
-		if [[ "$RESULT" == "$MOD_REQUIRED_OS" ]]; then
+		if [[ $RESULT == "$MOD_REQUIRED_OS" ]]; then
 			printf 'Found NVDAEGPUSupport.kext, already set to %s\n' "$MOD_REQUIRED_OS"
 		else
 			CHANGES_MADE=true
@@ -460,7 +459,7 @@ printf '%bDownloading package...%b\n' "$B" "$R"
 
 LOCAL_CHECKSUM=$(sha512 "$DOWNLOADED_PKG")
 if [[ $REMOTE_CHECKSUM ]]; then
-	if [[  "$LOCAL_CHECKSUM" == "$REMOTE_CHECKSUM" ]]; then
+	if [[  $LOCAL_CHECKSUM == "$REMOTE_CHECKSUM" ]]; then
 		printf 'SHA512: Verified\n'
 	else
 		error "SHA512 verification failed"
