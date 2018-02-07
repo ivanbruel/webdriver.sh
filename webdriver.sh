@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.0.10"
+SCRIPT_VERSION="1.0.11"
 
 R='\e[0m'	# no formatting
 B='\e[1m'	# bold
@@ -28,18 +28,18 @@ if ! /usr/bin/sw_vers -productVersion | grep "10.13" > /dev/null 2>&1; then
 	exit 1
 fi
 
+TMP_DIR=$(mktemp -dt webdriver.XXXXXX)
 MAC_OS_BUILD=$(/usr/bin/sw_vers -buildVersion)
-DOWNLOADS_DIR=~/Downloads
 REMOTE_UPDATE_PLIST="https://gfestage.nvidia.com/mac-update"
 CHANGES_MADE=false
 PROMPT_REBOOT=true
 NO_CACHE_UPDATE=false
 REINSTALL_OPTION=false
 REINSTALL_MESSAGE=false
-DOWNLOADED_UPDATE_PLIST="$DOWNLOADS_DIR/.nvwebupdates.plist"
-DOWNLOADED_PKG="$DOWNLOADS_DIR/.nvweb.pkg"
-EXTRACTED_PKG_DIR="$DOWNLOADS_DIR/.nvwebinstall"
-SQL_QUERY_FILE="$DOWNLOADS_DIR/.nvweb.sql"
+DOWNLOADED_UPDATE_PLIST="$TMP_DIR/nvwebupdates.plist"
+DOWNLOADED_PKG="$TMP_DIR/nvweb.pkg"
+EXTRACTED_PKG_DIR="$TMP_DIR/nvwebinstall"
+SQL_QUERY_FILE="$TMP_DIR/nvweb.sql"
 SQL_DEVELOPER_NAME="NVIDIA Corporation"
 SQL_TEAM_ID="6KR3T733EC"
 INSTALLED_VERSION="/Library/Extensions/GeForceWeb.kext/Contents/Info.plist"
@@ -136,11 +136,7 @@ function error() {
 }
 
 function delete_temporary_files() {
-	local REMOVE_LIST="$EXTRACTED_PKG_DIR \
-		$DOWNLOADED_UPDATE_PLIST \
-		$DOWNLOADED_PKG \
-		$SQL_QUERY_FILE"
-	silent rm -rf $REMOVE_LIST
+	silent rm -rf "$TMP_DIR"
 }
 
 function exit_ok() {
@@ -157,6 +153,7 @@ if [[ $COMMAND == "GET_PLIST_AND_EXIT" ]]; then
 		|| error "Couldn't get updates data from Nvidia" $?
 	printf '%s\n' "$DESTINATION"
 	open -R "$DESTINATION"
+	delete_temporary_files
 	exit 0
 fi
 
@@ -170,7 +167,7 @@ fi
 
 # Check SIP/file system permissions
 
-silent touch /System || error "Is SIP enabled?" $?
+silent touch /System || error "Is SIP enabled?"
 
 function bye() {
 	printf 'Complete.'
@@ -204,7 +201,6 @@ function uninstall_drivers() {
 	local EGPU_RENAMED="/Library/Extensions/EGPUSupport.kext"
 	local REMOVE_LIST="/Library/Extensions/GeForce* \
 		/Library/Extensions/NVDA* \
-		/Library/GPUBundles/GeForce*Web.bundle \
 		/System/Library/Extensions/GeForce*Web* \
 		/System/Library/Extensions/NVDA*Web*"
 	# Remove drivers
@@ -247,7 +243,7 @@ function ask() {
 	# ask $1: message
 	local INPUT=
 	printf '%b%s%b' "$B" "$1" "$R"
-	read -n 1 -srp " [y/N]" INPUT
+	builtin read -n 1 -srp " [y/N]" INPUT
 	if [[ $INPUT == "y" || $INPUT == "Y" ]]; then
 		printf '\n'
 		return 0
@@ -368,8 +364,6 @@ function sql_add_kext() {
 } >> "$SQL_QUERY_FILE"
 
 # UPDATER/INSTALLER
-
-delete_temporary_files
 
 if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 	
@@ -510,8 +504,9 @@ printf '%bInstalling...%b\n' "$B" "$R"
 uninstall_drivers
 cd "$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT" \
 	|| error "Couldn't find pkgutil output directory" $?
+cp -r ./Library/Extensions/* /Library/StagedExtensions/Library/Extensions
 cp -r ./Library/Extensions/* /Library/Extensions
-cp -r ./System/Library/Extensions/GeForce*Web.bundle /Library/GPUBundles
+cp -r ./System/Library/Extensions/* /Library/GPUBundles
 cp -r ./System/Library/Extensions/* /System/Library/Extensions
 
 # Update caches and exit
