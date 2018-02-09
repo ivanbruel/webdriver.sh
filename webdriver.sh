@@ -147,12 +147,24 @@ function exit_ok() {
 # COMMAND GET_PLIST_AND_EXIT
 
 if [[ $COMMAND == "GET_PLIST_AND_EXIT" ]]; then
-	DESTINATION=~/Downloads/NvidiaUpdates.plist
+	(( i = 0 ))
+	DOWNLOAD_PATH=~/Downloads/NvidiaUpdates
+	while (( $i < 49 )); do
+		if (( i == 0 )); then
+			DESTINATION="${DOWNLOAD_PATH}.plist"
+		else
+			DESTINATION="${DOWNLOAD_PATH}-${i}.plist"
+		fi
+		if ! [[ -f "$DESTINATION" ]]; then
+			break
+		fi
+		(( i+=1 ))
+	done
 	printf '%bDownloading...%b\n' "$B" "$R"
-	curl -s --connect-timeout 15 -m 45 -o "$DESTINATION" "$REMOTE_UPDATE_PLIST" \
+	/usr/bin/curl -s --connect-timeout 15 -m 45 -o "$DESTINATION" "$REMOTE_UPDATE_PLIST" \
 		|| error "Couldn't get updates data from Nvidia" $?
 	printf '%s\n' "$DESTINATION"
-	open -R "$DESTINATION"
+	/usr/bin/open -R "$DESTINATION"
 	delete_temporary_files
 	exit 0
 fi
@@ -375,7 +387,7 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 
 	# Get updates file
 	printf '%bChecking for updates...%b\n' "$B" "$R"
-	curl -s --connect-timeout 15 -m 45 -o "$DOWNLOADED_UPDATE_PLIST" "$REMOTE_UPDATE_PLIST" \
+	/usr/bin/curl -s --connect-timeout 15 -m 45 -o "$DOWNLOADED_UPDATE_PLIST" "$REMOTE_UPDATE_PLIST" \
 		|| error "Couldn't get updates data from Nvidia" $?
 
 	# Check for an update
