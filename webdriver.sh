@@ -147,7 +147,7 @@ function exit_ok() {
 # COMMAND GET_PLIST_AND_EXIT
 
 if [[ $COMMAND == "GET_PLIST_AND_EXIT" ]]; then
-	DESTINATION="$DOWNLOADS_DIR/NvidiaUpdates.plist"
+	DESTINATION=~/Downloads/NvidiaUpdates.plist
 	printf '%bDownloading...%b\n' "$B" "$R"
 	curl -s --connect-timeout 15 -m 45 -o "$DESTINATION" "$REMOTE_UPDATE_PLIST" \
 		|| error "Couldn't get updates data from Nvidia" $?
@@ -185,7 +185,7 @@ function warning() {
 }
 
 function uninstall_extra() {
-	local BREW_PREFIX
+	local BREW_PREFIX=
 	BREW_PREFIX=$(brew --prefix 2> /dev/null)
 	local HOST_PREFIX="/usr/local"
 	local UNINSTALL_CONF="etc/webdriver.sh/uninstall.conf"
@@ -225,7 +225,7 @@ function update_caches() {
 	local PLK="Created prelinked kernel"
 	local SLE="caches updated for /System/Library/Extensions"
 	local LE="caches updated for /Library/Extensions"
-	local RESULT
+	local RESULT=
 	RESULT=$(/usr/sbin/kextcache -v 2 -i / 2>&1)
 	echo "$RESULT" | grep "$PLK" > /dev/null 2>&1 \
 		|| caches_error "There was a problem creating the prelinked kernel"
@@ -243,7 +243,7 @@ function ask() {
 	# ask $1: message
 	local INPUT=
 	printf '%b%s%b' "$B" "$1" "$R"
-	builtin read -n 1 -srp " [y/N]" INPUT
+	read -n 1 -srp " [y/N]" INPUT
 	if [[ $INPUT == "y" || $INPUT == "Y" ]]; then
 		printf '\n'
 		return 0
