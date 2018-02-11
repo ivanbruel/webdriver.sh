@@ -44,6 +44,9 @@ SQL_DEVELOPER_NAME="NVIDIA Corporation"
 SQL_TEAM_ID="6KR3T733EC"
 INSTALLED_VERSION="/Library/Extensions/GeForceWeb.kext/Contents/Info.plist"
 DRIVERS_DIR_HINT="NVWebDrivers.pkg"
+MOD_INFO_PLIST_PATH="/Library/Extensions/NVDAStartupWeb.kext/Contents/Info.plist"
+EGPU_INFO_PLIST_PATH="/Library/Extensions/NVDAEGPUSupport.kext/Contents/Info.plist"
+MOD_KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
 (( CACHES_ERROR = 0 ))
 (( COMMAND_COUNT = 0 ))
 
@@ -304,25 +307,15 @@ function unset_nvram() {
 	/usr/sbin/nvram -d nvda_drv
 }
 
-# COMMAND SET_REQUIRED_OS_AND_EXIT
-
-if [[ $COMMAND == "SET_REQUIRED_OS_AND_EXIT" ]]; then
-	(( ERROR = 0 ))
-	MOD_INFO_PLIST_PATH="/Library/Extensions/NVDAStartupWeb.kext/Contents/Info.plist"
-	EGPU_INFO_PLIST_PATH="/Library/Extensions/NVDAEGPUSupport.kext/Contents/Info.plist"
-	MOD_KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
-	if [[ ! -f $MOD_INFO_PLIST_PATH ]]; then
-		printf 'Nvidia driver not found\n'
-		(( ERROR = 1 ))
-	else
-		RESULT=$(plistb "Print $MOD_KEY" "$MOD_INFO_PLIST_PATH") || plist_read_error
-		if [[ $RESULT == "$MOD_REQUIRED_OS" ]]; then
-			printf 'NVDARequiredOS already set to %s\n' "$MOD_REQUIRED_OS"
-		else 
-			CHANGES_MADE=true
-			printf '%bSetting NVDARequiredOS to %s...%b\n' "$B" "$MOD_REQUIRED_OS" "$R"
-			plistb "Set $MOD_KEY $MOD_REQUIRED_OS" "$MOD_INFO_PLIST_PATH" || plist_write_error
-		fi
+function set_required_os() {
+	local RESULT=
+	RESULT=$(plistb "Print $MOD_KEY" "$MOD_INFO_PLIST_PATH") || plist_read_error
+	if [[ $RESULT == "$MOD_REQUIRED_OS" ]]; then
+		printf 'NVDARequiredOS already set to %s\n' "$MOD_REQUIRED_OS"
+	else 
+		CHANGES_MADE=true
+		printf '%bSetting NVDARequiredOS to %s...%b\n' "$B" "$MOD_REQUIRED_OS" "$R"
+		plistb "Set $MOD_KEY $MOD_REQUIRED_OS" "$MOD_INFO_PLIST_PATH" || plist_write_error
 	fi
 	if [[ -f $EGPU_INFO_PLIST_PATH ]]; then
 		RESULT=$(plistb "Print $MOD_KEY" "$EGPU_INFO_PLIST_PATH") || plist_read_error
@@ -333,6 +326,18 @@ if [[ $COMMAND == "SET_REQUIRED_OS_AND_EXIT" ]]; then
 			printf '%bFound NVDAEGPUSupport.kext, setting NVDARequiredOS to %s...%b\n' "$B" "$MOD_REQUIRED_OS" "$R"
 			plistb "Set $MOD_KEY $MOD_REQUIRED_OS" "$EGPU_INFO_PLIST_PATH"  || plist_write_error
 		fi
+	fi
+}
+
+# COMMAND SET_REQUIRED_OS_AND_EXIT
+
+if [[ $COMMAND == "SET_REQUIRED_OS_AND_EXIT" ]]; then
+	(( ERROR = 0 ))
+	if [[ ! -f $MOD_INFO_PLIST_PATH ]]; then
+		printf 'Nvidia driver not found\n'
+		(( ERROR = 1 ))
+	else
+		set_required_os
 	fi
 	if $CHANGES_MADE; then
 		update_caches
