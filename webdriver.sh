@@ -263,7 +263,7 @@ function ask() {
 		printf '\n'
 		return 0
 	else
-		exit_ok
+		return 1
 	fi
 }
 
@@ -308,23 +308,36 @@ function unset_nvram() {
 }
 
 function set_required_os() {
+	# set_required_os $1: target_version
 	local RESULT=
+	local BUILD="$1"
 	RESULT=$(plistb "Print $MOD_KEY" "$MOD_INFO_PLIST_PATH") || plist_read_error
-	if [[ $RESULT == "$MOD_REQUIRED_OS" ]]; then
-		printf 'NVDARequiredOS already set to %s\n' "$MOD_REQUIRED_OS"
+	if [[ $RESULT == "$BUILD" ]]; then
+		printf 'NVDARequiredOS already set to %s\n' "$BUILD"
 	else 
 		CHANGES_MADE=true
-		printf '%bSetting NVDARequiredOS to %s...%b\n' "$B" "$MOD_REQUIRED_OS" "$R"
-		plistb "Set $MOD_KEY $MOD_REQUIRED_OS" "$MOD_INFO_PLIST_PATH" || plist_write_error
+		printf '%bSetting NVDARequiredOS to %s...%b\n' "$B" "$BUILD" "$R"
+		plistb "Set $MOD_KEY $BUILD" "$MOD_INFO_PLIST_PATH" || plist_write_error
 	fi
 	if [[ -f $EGPU_INFO_PLIST_PATH ]]; then
 		RESULT=$(plistb "Print $MOD_KEY" "$EGPU_INFO_PLIST_PATH") || plist_read_error
-		if [[ $RESULT == "$MOD_REQUIRED_OS" ]]; then
-			printf 'Found NVDAEGPUSupport.kext, already set to %s\n' "$MOD_REQUIRED_OS"
+		if [[ $RESULT == "$BUILD" ]]; then
+			printf 'Found NVDAEGPUSupport.kext, already set to %s\n' "$BUILD"
 		else
 			CHANGES_MADE=true
-			printf '%bFound NVDAEGPUSupport.kext, setting NVDARequiredOS to %s...%b\n' "$B" "$MOD_REQUIRED_OS" "$R"
-			plistb "Set $MOD_KEY $MOD_REQUIRED_OS" "$EGPU_INFO_PLIST_PATH"  || plist_write_error
+			printf '%bFound NVDAEGPUSupport.kext, setting NVDARequiredOS to %s...%b\n' "$B" "$BUILD" "$R"
+			plistb "Set $MOD_KEY $BUILD" "$EGPU_INFO_PLIST_PATH"  || plist_write_error
+		fi
+	fi
+}
+
+function check_required_os() {
+	local RESULT=
+	if [[ -f $MOD_INFO_PLIST_PATH ]]; then
+		RESULT=$(plistb "Print $MOD_KEY" "$MOD_INFO_PLIST_PATH") || plist_read_error
+		if [[ $RESULT != "$MAC_OS_BUILD" ]]; then
+			ask "Modify the driver to load on this macOS version (${MAC_OS_BUILD})?" || return 0
+			set_required_os "$MAC_OS_BUILD"
 		fi
 	fi
 }
@@ -337,7 +350,7 @@ if [[ $COMMAND == "SET_REQUIRED_OS_AND_EXIT" ]]; then
 		printf 'Nvidia driver not found\n'
 		(( ERROR = 1 ))
 	else
-		set_required_os
+		set_required_os "$MOD_REQUIRED_OS"
 	fi
 	if $CHANGES_MADE; then
 		update_caches
@@ -440,9 +453,9 @@ fi
 # Prompt install y/n
 
 if $REINSTALL_MESSAGE; then
-	ask "Re-install?"
+	ask "Re-install?" || exit_ok
 else
-	ask "Install?"
+	ask "Install?" || exit_ok
 fi
 
 # Check URL
