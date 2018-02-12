@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.0.14"
+SCRIPT_VERSION="1.0.15"
 
 R='\e[0m'	# no formatting
 B='\e[1m'	# bold
@@ -345,7 +345,7 @@ function check_required_os() {
 	if [[ -f $MOD_INFO_PLIST_PATH ]]; then
 		RESULT=$(plistb "Print $MOD_KEY" "$MOD_INFO_PLIST_PATH") || plist_read_error
 		if [[ $RESULT != "$MAC_OS_BUILD" ]]; then
-			ask "Modify the driver to load on this macOS version (${MAC_OS_BUILD})?" || return 0
+			ask "Modify installed driver to start on this macOS version (${MAC_OS_BUILD})?" || return 0
 			set_required_os "$MAC_OS_BUILD"
 			PROMPT_REBOOT=true
 		fi
@@ -533,8 +533,26 @@ cd "$PAYLOAD_BASE_DIR" || error "Couldn't find pkgutil output directory" $?
 	|| error "Couldn't extract package" $?
 if [[ ! -d ./Library/Extensions || ! -d ./System/Library/Extensions ]]; then
 	error "Unexpected directory structure after extraction"; fi
+	
+# Make SQL
+
+printf '%bApproving kexts...%b\n' "$B" "$R"
+cd "$PAYLOAD_BASE_DIR" || error "Couldn't find payload base directory" $?
+KEXT_INFO_PLISTS=(./Library/Extensions/*.kext/Contents/Info.plist)
+for PLIST in "${KEXT_INFO_PLISTS[@]}"; do
+	BUNDLE_ID=$(plistb "Print :CFBundleIdentifier" "$PLIST") || plist_read_error
+	if [[ $BUNDLE_ID ]]; then
+		sql_add_kext "$BUNDLE_ID"
+	fi
+done
+sql_add_kext "com.nvidia.CUDA"
 
 CHANGES_MADE=true
+
+# Allow kexts
+
+/usr/bin/sqlite3 /var/db/SystemPolicyConfiguration/KextPolicy < "$SQL_QUERY_FILE" \
+	|| warning "sqlite3 exit code $?, extensions may not be loadable"
 
 # Install
 
