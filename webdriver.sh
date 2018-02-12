@@ -47,6 +47,8 @@ DRIVERS_DIR_HINT="NVWebDrivers.pkg"
 MOD_INFO_PLIST_PATH="/Library/Extensions/NVDAStartupWeb.kext/Contents/Info.plist"
 EGPU_INFO_PLIST_PATH="/Library/Extensions/NVDAEGPUSupport.kext/Contents/Info.plist"
 MOD_KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
+BREW_PREFIX=$(brew --prefix 2> /dev/null)
+HOST_PREFIX="/usr/local"
 (( CACHES_ERROR = 0 ))
 (( COMMAND_COUNT = 0 ))
 
@@ -199,10 +201,17 @@ function warning() {
 	printf '%bWarning%b: %s\n' "$U" "$R" "$1" 
 }
 
+function post_install() {
+	# post_install $1: extracted_package_dir
+	local INSTALL_CONF="etc/webdriver.sh/post-install.conf"
+	if [[ -f "$BREW_PREFIX/$INSTALL_CONF" ]]; then
+		"$BREW_PREFIX/$INSTALL_CONF" "$1"
+	elif [[ -f "$HOST_PREFIX/$INSTALL_CONF" ]]; then
+		"$HOST_PREFIX/$INSTALL_CONF" "$1"
+	fi
+}
+
 function uninstall_extra() {
-	local BREW_PREFIX=
-	BREW_PREFIX=$(brew --prefix 2> /dev/null)
-	local HOST_PREFIX="/usr/local"
 	local UNINSTALL_CONF="etc/webdriver.sh/uninstall.conf"
 	if [[ -f "$BREW_PREFIX/$UNINSTALL_CONF" ]]; then
 		"$BREW_PREFIX/$UNINSTALL_CONF"
@@ -534,10 +543,9 @@ printf '%bInstalling...%b\n' "$B" "$R"
 uninstall_drivers
 cd "$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT" \
 	|| error "Couldn't find pkgutil output directory" $?
-cp -r ./Library/Extensions/* /Library/StagedExtensions/Library/Extensions
 cp -r ./Library/Extensions/* /Library/Extensions
-cp -r ./System/Library/Extensions/* /Library/GPUBundles
 cp -r ./System/Library/Extensions/* /System/Library/Extensions
+post_install "$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT"
 
 # Update caches and exit
 
