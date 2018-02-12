@@ -36,6 +36,7 @@ PROMPT_REBOOT=true
 NO_CACHE_UPDATE=false
 REINSTALL_OPTION=false
 REINSTALL_MESSAGE=false
+SYSTEM_OPTION=false
 DOWNLOADED_UPDATE_PLIST="$TMP_DIR/nvwebupdates.plist"
 DOWNLOADED_PKG="$TMP_DIR/nvweb.pkg"
 EXTRACTED_PKG_DIR="$TMP_DIR/nvwebinstall"
@@ -70,7 +71,7 @@ function version() {
 	echo "See the GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>"
 }
 
-while getopts ":hvpu:rm:cf" OPTION; do
+while getopts ":hvpu:rm:cfS" OPTION; do
 	case $OPTION in
 	"h")
 		usage
@@ -97,6 +98,8 @@ while getopts ":hvpu:rm:cf" OPTION; do
 		PROMPT_REBOOT=false;;
 	"f")
 		REINSTALL_OPTION=true;;
+	"S")	
+		SYSTEM_OPTION=true;;
 	"?")
 		printf 'Invalid option: -%s\n' "$OPTARG"
 		usage
@@ -569,4 +572,8 @@ check_required_os
 update_caches
 set_nvram
 delete_temporary_files
+if $SYSTEM_OPTION; then
+	printf '%bSystem update...%b\n' "$B" "$R"
+	silent /usr/sbin/softwareupdate -ir
+fi
 bye
