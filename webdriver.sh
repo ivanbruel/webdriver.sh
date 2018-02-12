@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.0.13"
+SCRIPT_VERSION="1.0.14"
 
 R='\e[0m'	# no formatting
 B='\e[1m'	# bold
@@ -29,7 +29,7 @@ if ! /usr/bin/sw_vers -productVersion | grep "10.13" > /dev/null 2>&1; then
 fi
 
 TMP_DIR=$(mktemp -dt webdriver.XXXXXX)
-MAC_OS_BUILD=$(/usr/bin/sw_vers -buildVersion)
+MAC_OS_BUILD=$(/usr/bin/sw_vers -buildVersion) || error "sw_vers error"
 REMOTE_UPDATE_PLIST="https://gfestage.nvidia.com/mac-update"
 CHANGES_MADE=false
 PROMPT_REBOOT=true
@@ -444,7 +444,11 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 	elif [[ $REMOTE_VERSION == "$VERSION" ]]; then
 		# Latest already installed, exit
 		printf '%s for %s already installed\n' "$REMOTE_VERSION" "$MAC_OS_BUILD"
-		$REINSTALL_OPTION || exit_ok
+		if ! $REINSTALL_OPTION; then
+			check_required_os
+			$CHANGES_MADE && update_caches
+			exit_ok
+		fi
 		REINSTALL_MESSAGE=true
 	else
 		# Found an update, proceed to installation
@@ -552,6 +556,7 @@ post_install "$PAYLOAD_BASE_DIR"
 
 # Update caches and exit
 
+check_required_os
 update_caches
 set_nvram
 delete_temporary_files
