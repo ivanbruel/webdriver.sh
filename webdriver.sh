@@ -268,8 +268,8 @@ function ask() {
 	local INPUT=
 	printf '%b%s%b' "$B" "$1" "$R"
 	read -n 1 -srp " [y/N]" INPUT
+	printf '\n'
 	if [[ $INPUT == "y" || $INPUT == "Y" ]]; then
-		printf '\n'
 		return 0
 	else
 		return 1
@@ -347,6 +347,7 @@ function check_required_os() {
 		if [[ $RESULT != "$MAC_OS_BUILD" ]]; then
 			ask "Modify the driver to load on this macOS version (${MAC_OS_BUILD})?" || return 0
 			set_required_os "$MAC_OS_BUILD"
+			PROMPT_REBOOT=true
 		fi
 	fi
 }
