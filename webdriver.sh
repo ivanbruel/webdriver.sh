@@ -440,13 +440,21 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 	if [[ -z $REMOTE_URL || -z $REMOTE_VERSION ]]; then
 		# No driver available, or error during check, exit
 		printf 'No driver available for %s\n' "$MAC_OS_BUILD"
+		check_required_os
+		if $CHANGES_MADE; then
+			update_caches
+			set_nvram
+		fi
 		exit_ok
 	elif [[ $REMOTE_VERSION == "$VERSION" ]]; then
 		# Latest already installed, exit
 		printf '%s for %s already installed\n' "$REMOTE_VERSION" "$MAC_OS_BUILD"
 		if ! $REINSTALL_OPTION; then
 			check_required_os
-			$CHANGES_MADE && update_caches
+			if $CHANGES_MADE; then
+				update_caches
+				set_nvram
+			fi
 			exit_ok
 		fi
 		REINSTALL_MESSAGE=true
@@ -515,7 +523,7 @@ DIRS=("$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT")
 if [[ ${#DIRS[@]} = 1 ]] && ! [[ ${DIRS[0]} =~ "*" ]]; then
         PAYLOAD_BASE_DIR=${DIRS[0]}
 else
-        error "Couldn't find pkgutil output directory 1"
+        error "Couldn't find pkgutil output directory"
 fi
 cd "$PAYLOAD_BASE_DIR" || error "Couldn't find pkgutil output directory" $?
 /usr/bin/gunzip -dc < ./Payload > ./tmp.cpio \
@@ -523,27 +531,9 @@ cd "$PAYLOAD_BASE_DIR" || error "Couldn't find pkgutil output directory" $?
 /usr/bin/cpio -i < ./tmp.cpio \
 	|| error "Couldn't extract package" $?
 if [[ ! -d ./Library/Extensions || ! -d ./System/Library/Extensions ]]; then
-	error "Unexpected directory structure after extraction" 1; fi
-
-# Make SQL
-
-printf '%bApproving kexts...%b\n' "$B" "$R"
-cd "$PAYLOAD_BASE_DIR" || error "Couldn't find payload base directory" $?
-KEXT_INFO_PLISTS=(./Library/Extensions/*.kext/Contents/Info.plist)
-for PLIST in "${KEXT_INFO_PLISTS[@]}"; do
-	BUNDLE_ID=$(plistb "Print :CFBundleIdentifier" "$PLIST") || plist_read_error
-	if [[ $BUNDLE_ID ]]; then
-		sql_add_kext "$BUNDLE_ID"
-	fi
-done
-sql_add_kext "com.nvidia.CUDA"
+	error "Unexpected directory structure after extraction"; fi
 
 CHANGES_MADE=true
-
-# Allow kexts
-
-/usr/bin/sqlite3 /var/db/SystemPolicyConfiguration/KextPolicy < "$SQL_QUERY_FILE" \
-	|| warning "sqlite3 exit code $?, extensions may not be loadable"
 
 # Install
 
