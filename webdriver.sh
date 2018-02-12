@@ -154,7 +154,7 @@ function exit_ok() {
 if [[ $COMMAND == "GET_PLIST_AND_EXIT" ]]; then
 	(( i = 0 ))
 	DOWNLOAD_PATH=~/Downloads/NvidiaUpdates
-	while (( $i < 49 )); do
+	while (( i < 49 )); do
 		if (( i == 0 )); then
 			DESTINATION="${DOWNLOAD_PATH}.plist"
 		else
@@ -163,7 +163,7 @@ if [[ $COMMAND == "GET_PLIST_AND_EXIT" ]]; then
 		if ! [[ -f "$DESTINATION" ]]; then
 			break
 		fi
-		(( i+=1 ))
+		(( i += 1 ))
 	done
 	printf '%bDownloading...%b\n' "$B" "$R"
 	/usr/bin/curl -s --connect-timeout 15 -m 45 -o "$DESTINATION" "$REMOTE_UPDATE_PLIST" \
@@ -507,8 +507,13 @@ fi
 printf '%bExtracting...%b\n' "$B" "$R"
 /usr/sbin/pkgutil --expand "$DOWNLOADED_PKG" "$EXTRACTED_PKG_DIR" \
 	|| error "Couldn't extract package" $?
-cd "$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT" \
-	|| error "Couldn't find pkgutil output directory" $?
+DIRS=("$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT")
+if [[ ${#DIRS[@]} = 1 ]] && ! [[ ${DIRS[0]} =~ "*" ]]; then
+        PAYLOAD_BASE_DIR=${DIRS[0]}
+else
+        error "Couldn't find pkgutil output directory 1"
+fi
+cd "$PAYLOAD_BASE_DIR" || error "Couldn't find pkgutil output directory" $?
 /usr/bin/gunzip -dc < ./Payload > ./tmp.cpio \
 	|| error "Couldn't extract package" $?
 /usr/bin/cpio -i < ./tmp.cpio \
@@ -519,8 +524,7 @@ if [[ ! -d ./Library/Extensions || ! -d ./System/Library/Extensions ]]; then
 # Make SQL
 
 printf '%bApproving kexts...%b\n' "$B" "$R"
-cd "$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT" \
-	|| error "Couldn't find pkgutil output directory" $?
+cd "$PAYLOAD_BASE_DIR" || error "Couldn't find payload base directory" $?
 KEXT_INFO_PLISTS=(./Library/Extensions/*.kext/Contents/Info.plist)
 for PLIST in "${KEXT_INFO_PLISTS[@]}"; do
 	BUNDLE_ID=$(plistb "Print :CFBundleIdentifier" "$PLIST") || plist_read_error
@@ -541,11 +545,10 @@ CHANGES_MADE=true
 
 printf '%bInstalling...%b\n' "$B" "$R"
 uninstall_drivers
-cd "$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT" \
-	|| error "Couldn't find pkgutil output directory" $?
+cd "$PAYLOAD_BASE_DIR" || error "Couldn't find payload base directory" $?
 cp -r ./Library/Extensions/* /Library/Extensions
 cp -r ./System/Library/Extensions/* /System/Library/Extensions
-post_install "$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT"
+post_install "$PAYLOAD_BASE_DIR"
 
 # Update caches and exit
 
