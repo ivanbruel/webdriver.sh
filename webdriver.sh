@@ -33,10 +33,11 @@ MAC_OS_BUILD=$(/usr/bin/sw_vers -buildVersion) || error "sw_vers error"
 REMOTE_UPDATE_PLIST="https://gfestage.nvidia.com/mac-update"
 CHANGES_MADE=false
 PROMPT_REBOOT=true
-NO_CACHE_UPDATE=false
+NO_CACHE_UPDATE_OPTION=false
 REINSTALL_OPTION=false
 REINSTALL_MESSAGE=false
 SYSTEM_OPTION=false
+YES_OPTION=false
 DOWNLOADED_UPDATE_PLIST="$TMP_DIR/nvwebupdates.plist"
 DOWNLOADED_PKG="$TMP_DIR/nvweb.pkg"
 EXTRACTED_PKG_DIR="$TMP_DIR/nvwebinstall"
@@ -71,7 +72,7 @@ function version() {
 	echo "See the GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>"
 }
 
-while getopts ":hvpu:rm:cfS" OPTION; do
+while getopts ":hvpu:rm:cfSy" OPTION; do
 	case $OPTION in
 	"h")
 		usage
@@ -94,12 +95,14 @@ while getopts ":hvpu:rm:cfS" OPTION; do
 		COMMAND="SET_REQUIRED_OS_AND_EXIT"
 		(( COMMAND_COUNT += 1 ));;
 	"c")
-		NO_CACHE_UPDATE=true
+		NO_CACHE_UPDATE_OPTION=true
 		PROMPT_REBOOT=false;;
 	"f")
 		REINSTALL_OPTION=true;;
 	"S")	
 		SYSTEM_OPTION=true;;
+	"y")
+		YES_OPTION=true;;
 	"?")
 		printf 'Invalid option: -%s\n' "$OPTARG"
 		usage
@@ -244,7 +247,7 @@ function caches_error() {
 }
 
 function update_caches() {
-	if $NO_CACHE_UPDATE; then
+	if $NO_CACHE_UPDATE_OPTION; then
 		warning "Caches are not being updated"
 		return 0
 	fi
@@ -344,6 +347,8 @@ function set_required_os() {
 }
 
 function check_required_os() {
+	if $YES_OPTION; then
+		return 0; fi
 	local RESULT=
 	if [[ -f $MOD_INFO_PLIST_PATH ]]; then
 		RESULT=$(plistb "Print $MOD_KEY" "$MOD_INFO_PLIST_PATH") || plist_read_error
@@ -477,10 +482,12 @@ fi
 
 # Prompt install y/n
 
-if $REINSTALL_MESSAGE; then
-	ask "Re-install?" || exit_ok
-else
-	ask "Install?" || exit_ok
+if ! $YES_OPTION; then
+	if $REINSTALL_MESSAGE; then
+		ask "Re-install?" || exit_ok
+	else
+		ask "Install?" || exit_ok
+	fi
 fi
 
 # Check URL
