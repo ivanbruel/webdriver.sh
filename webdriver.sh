@@ -57,8 +57,15 @@ MOD_KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
 BREW_PREFIX=$(brew --prefix 2> /dev/null)
 HOST_PREFIX="/usr/local"
 BASENAME=$(basename "$0")
+RAW_ARGS="$@"
 (( CACHES_ERROR = 0 ))
 (( COMMAND_COUNT = 0 ))
+
+if [[ $BASENAME =~ "system-update" ]]; then
+	[[ $1 != "-u" ]] && exit 1
+	[[ -z $2 ]] && exit 1
+	set -- "-Sycu" "$2"
+fi
 
 function usage() {
 	echo "Usage: $BASENAME [-f] [-c] [-h|-p|-r|-u url|-m [build]]"
@@ -190,7 +197,7 @@ fi
 
 USER_ID=$(id -u)
 if [[ $USER_ID != "0" ]]; then
-	printf 'Run it as root: sudo %s %s' "$BASENAME" "$@"
+	printf 'Run it as root: sudo %s %s' "$BASENAME" "$RAW_ARGS"
 	exit 0
 fi
 
@@ -305,9 +312,7 @@ function plistb() {
 		if ! RESULT=$(/usr/libexec/PlistBuddy -c "$1" "$2" 2> /dev/null); then
 			return 1; fi
 	fi
-	if [[ $RESULT ]]; then
-		printf "%s" "$RESULT"
-	fi
+	[[ $RESULT ]] && printf "%s" "$RESULT"
 	return 0
 }
 
@@ -315,9 +320,7 @@ function sha512() {
 	# checksum $1: file
 	local RESULT=
 	RESULT=$(/usr/bin/shasum -a 512 "$1" | awk '{print $1;}')
-	if [[ $RESULT ]]; then
-		printf '%s' "$RESULT"
-	fi
+	[[ $RESULT ]] && printf '%s' "$RESULT"
 }
 
 function set_nvram() {
@@ -353,8 +356,7 @@ function set_required_os() {
 }
 
 function check_required_os() {
-	if $YES_OPTION; then
-		return 0; fi
+	$YES_OPTION && return 0
 	local RESULT=
 	if [[ -f $MOD_INFO_PLIST_PATH ]]; then
 		RESULT=$(plistb "Print $MOD_KEY" "$MOD_INFO_PLIST_PATH") || plist_read_error
@@ -420,9 +422,6 @@ function sql_add_kext() {
 # UPDATER/INSTALLER
 
 if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
-	
-	if [[ -z $MAC_OS_BUILD ]]; then
-		error "macOS build should have been set by now"; fi
 
 	# No URL specified, get installed web driver verison
 	VERSION=$(installed_version)
@@ -557,9 +556,7 @@ cd "$PAYLOAD_BASE_DIR" || error "Couldn't find payload base directory" $?
 KEXT_INFO_PLISTS=(./Library/Extensions/*.kext/Contents/Info.plist)
 for PLIST in "${KEXT_INFO_PLISTS[@]}"; do
 	BUNDLE_ID=$(plistb "Print :CFBundleIdentifier" "$PLIST") || plist_read_error
-	if [[ $BUNDLE_ID ]]; then
-		sql_add_kext "$BUNDLE_ID"
-	fi
+	[[ $BUNDLE_ID ]] && sql_add_kext "$BUNDLE_ID"
 done
 sql_add_kext "com.nvidia.CUDA"
 
