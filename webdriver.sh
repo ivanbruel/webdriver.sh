@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.0.15"
+SCRIPT_VERSION="1.0.16"
 
 R='\e[0m'	# no formatting
 B='\e[1m'	# bold
