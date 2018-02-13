@@ -51,11 +51,12 @@ EGPU_INFO_PLIST_PATH="/Library/Extensions/NVDAEGPUSupport.kext/Contents/Info.pli
 MOD_KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
 BREW_PREFIX=$(brew --prefix 2> /dev/null)
 HOST_PREFIX="/usr/local"
+BASENAME=$(basename "$0")
 (( CACHES_ERROR = 0 ))
 (( COMMAND_COUNT = 0 ))
 
 function usage() {
-	echo "Usage: $(basename "$0") [-f] [-c] [-h|-p|-r|-u url|-m [build]]"
+	echo "Usage: $BASENAME [-f] [-c] [-h|-p|-r|-u url|-m [build]]"
 	echo "          -f            re-install"
         echo "          -c            don't update caches"
 	echo "          -h            print usage and exit"
@@ -184,7 +185,7 @@ fi
 
 USER_ID=$(id -u)
 if [[ $USER_ID != "0" ]]; then
-	printf 'Run it as root: sudo %s %s' "$(basename "$0")" "$@"
+	printf 'Run it as root: sudo %s %s' "$BASENAME" "$@"
 	exit 0
 fi
 
