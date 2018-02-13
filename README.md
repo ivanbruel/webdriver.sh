@@ -1,5 +1,7 @@
 # webdriver.sh
 
+![webdriver.sh screenshot](https://github.com/vulgo/webdriver.sh/raw/master/Images/screenshot.png "webdriver.sh screenshot")
+
 Bash script for managing Nvidia's web drivers on macOS High Sierra.
 
 ## Installing
