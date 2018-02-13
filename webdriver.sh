@@ -28,8 +28,13 @@ if ! /usr/bin/sw_vers -productVersion | grep "10.13" > /dev/null 2>&1; then
 	exit 1
 fi
 
+MAC_OS_BUILD=$(/usr/bin/sw_vers -buildVersion)
+if [[ $? != 0 ]]; then
+	printf 'sw_vers error\n'
+	exit $?
+fi
+
 TMP_DIR=$(mktemp -dt webdriver.XXXXXX)
-MAC_OS_BUILD=$(/usr/bin/sw_vers -buildVersion) || error "sw_vers error"
 REMOTE_UPDATE_PLIST="https://gfestage.nvidia.com/mac-update"
 CHANGES_MADE=false
 PROMPT_REBOOT=true
