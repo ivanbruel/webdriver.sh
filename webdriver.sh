@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.0.16"
+SCRIPT_VERSION="1.0.17"
 
 R='\e[0m'	# no formatting
 B='\e[1m'	# bold
@@ -34,7 +34,7 @@ if [[ $? != 0 ]]; then
 	exit $?
 fi
 
-TMP_DIR=$(mktemp -dt webdriver.XXXXXX)
+TMP_DIR=$(/usr/bin/mktemp -dt webdriver)
 REMOTE_UPDATE_PLIST="https://gfestage.nvidia.com/mac-update"
 CHANGES_MADE=false
 PROMPT_REBOOT=true
@@ -43,10 +43,10 @@ REINSTALL_OPTION=false
 REINSTALL_MESSAGE=false
 SYSTEM_OPTION=false
 YES_OPTION=false
-DOWNLOADED_UPDATE_PLIST="$TMP_DIR/nvwebupdates.plist"
-DOWNLOADED_PKG="$TMP_DIR/nvweb.pkg"
-EXTRACTED_PKG_DIR="$TMP_DIR/nvwebinstall"
-SQL_QUERY_FILE="$TMP_DIR/nvweb.sql"
+DOWNLOADED_UPDATE_PLIST="${TMP_DIR}/nvwebupdates.plist"
+DOWNLOADED_PKG="${TMP_DIR}/nvweb.pkg"
+EXTRACTED_PKG_DIR="${TMP_DIR}/nvwebinstall"
+SQL_QUERY_FILE="${TMP_DIR}/nvweb.sql"
 SQL_DEVELOPER_NAME="NVIDIA Corporation"
 SQL_TEAM_ID="6KR3T733EC"
 INSTALLED_VERSION="/Library/Extensions/GeForceWeb.kext/Contents/Info.plist"
@@ -68,14 +68,13 @@ if [[ $BASENAME =~ "system-update" ]]; then
 fi
 
 function usage() {
-	echo "Usage: $BASENAME [-f] [-c] [-h|-p|-r|-u url|-m [build]]"
-	echo "          -f            re-install"
-        echo "          -c            don't update caches"
-	echo "          -h            print usage and exit"
-	echo "          -p            download the updates property list and exit"
-	echo "          -r            uninstall Nvidia web drivers"
+	echo "Usage: $BASENAME [-f] [-c] [-u url|-r|-m [build]|-p]"
 	echo "          -u URL        install driver package at URL, no version checks"
+	echo "          -r            uninstall drivers"
 	echo "          -m [build]    modify the current driver's NVDARequiredOS"
+	echo "          -f            reinstall the current drivers"
+        echo "          -c            don't update caches"
+	echo "          -p            download the updates property list and exit"
 }
 
 function version() {
@@ -126,7 +125,7 @@ while getopts ":hvpu:rm:cfSy" OPTION; do
 			COMMAND="SET_REQUIRED_OS_AND_EXIT"
 			(( COMMAND_COUNT += 1 ))
 		else
-			printf 'Missing parameter\n'
+			printf 'Missing parameter for -%s\n' "$OPTARG"
 			usage
 			exit 1
 		fi;;
@@ -223,19 +222,19 @@ function warning() {
 function post_install() {
 	# post_install $1: extracted_package_dir
 	local INSTALL_CONF="etc/webdriver.sh/post-install.conf"
-	if [[ -f "$BREW_PREFIX/$INSTALL_CONF" ]]; then
-		"$BREW_PREFIX/$INSTALL_CONF" "$1"
-	elif [[ -f "$HOST_PREFIX/$INSTALL_CONF" ]]; then
-		"$HOST_PREFIX/$INSTALL_CONF" "$1"
+	if [[ -f "${BREW_PREFIX}/${INSTALL_CONF}" ]]; then
+		"${BREW_PREFIX}/${INSTALL_CONF}" "$1"
+	elif [[ -f "${HOST_PREFIX}/${INSTALL_CONF}" ]]; then
+		"${HOST_PREFIX}/${INSTALL_CONF}" "$1"
 	fi
 }
 
 function uninstall_extra() {
 	local UNINSTALL_CONF="etc/webdriver.sh/uninstall.conf"
-	if [[ -f "$BREW_PREFIX/$UNINSTALL_CONF" ]]; then
-		"$BREW_PREFIX/$UNINSTALL_CONF"
-	elif [[ -f "$HOST_PREFIX/$UNINSTALL_CONF" ]]; then
-		"$HOST_PREFIX/$UNINSTALL_CONF"
+	if [[ -f "${BREW_PREFIX}/${UNINSTALL_CONF}" ]]; then
+		"${BREW_PREFIX}/${UNINSTALL_CONF}"
+	elif [[ -f "${HOST_PREFIX}/${UNINSTALL_CONF}" ]]; then
+		"${HOST_PREFIX}/${UNINSTALL_CONF}"
 	fi
 }
 
@@ -249,6 +248,8 @@ function uninstall_drivers() {
 	# Remove drivers
 	silent mv "$EGPU_DEFAULT" "$EGPU_RENAMED"
 	silent rm -rf $REMOVE_LIST
+	# Remove driver flat package receipt
+	silent pkgutil --forget com.nvidia.web-driver
 	silent mv "$EGPU_RENAMED" "$EGPU_DEFAULT"
 	uninstall_extra
 }
@@ -319,7 +320,7 @@ function plistb() {
 function sha512() {
 	# checksum $1: file
 	local RESULT=
-	RESULT=$(/usr/bin/shasum -a 512 "$1" | awk '{print $1;}')
+	RESULT=$(/usr/bin/shasum -a 512 "$1" | awk '{print $1}')
 	[[ $RESULT ]] && printf '%s' "$RESULT"
 }
 
@@ -434,16 +435,16 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 	# Check for an update
 	(( i = 0 ))
 	while (( i < 200 )); do
-		if ! REMOTE_MAC_OS_BUILD=$(plistb "Print :updates:$i:OS" "$DOWNLOADED_UPDATE_PLIST"); then
+		if ! REMOTE_MAC_OS_BUILD=$(plistb "Print :updates:${i}:OS" "$DOWNLOADED_UPDATE_PLIST"); then
 			unset REMOTE_MAC_OS_BUILD
 			break
 		fi
 		if [[ $REMOTE_MAC_OS_BUILD == "$MAC_OS_BUILD" ]]; then
-			if ! REMOTE_URL=$(plistb "Print :updates:$i:downloadURL" "$DOWNLOADED_UPDATE_PLIST"); then
+			if ! REMOTE_URL=$(plistb "Print :updates:${i}:downloadURL" "$DOWNLOADED_UPDATE_PLIST"); then
 				unset REMOTE_URL; fi
-			if ! REMOTE_VERSION=$(plistb "Print :updates:$i:version" "$DOWNLOADED_UPDATE_PLIST"); then
+			if ! REMOTE_VERSION=$(plistb "Print :updates:${i}:version" "$DOWNLOADED_UPDATE_PLIST"); then
 				unset REMOTE_VERSION; fi
-			if ! REMOTE_CHECKSUM=$(plistb "Print :updates:$i:checksum" "$DOWNLOADED_UPDATE_PLIST"); then
+			if ! REMOTE_CHECKSUM=$(plistb "Print :updates:${i}:checksum" "$DOWNLOADED_UPDATE_PLIST"); then
 				unset REMOTE_CHECKSUM; fi
 			break
 		fi
@@ -501,7 +502,7 @@ REMOTE_HOST=$(printf '%s' "$REMOTE_URL" | awk -F/ '{print $3}')
 if ! silent /usr/bin/host "$REMOTE_HOST"; then
 	if [[ $COMMAND == "USER_PROVIDED_URL" ]]; then
 		error "Unable to resolve host, check your URL"; fi
-	REMOTE_URL="https://images.nvidia.com/mac/pkg/${REMOTE_VERSION%%.*}/WebDriver-$REMOTE_VERSION.pkg"
+	REMOTE_URL="https://images.nvidia.com/mac/pkg/${REMOTE_VERSION%%.*}/WebDriver-${REMOTE_VERSION}.pkg"
 fi
 HEADERS=$(/usr/bin/curl -I "$REMOTE_URL" 2>&1) \
 	|| error "Failed to download HTTP headers"
