@@ -372,7 +372,7 @@ function check_required_os() {
 	if [[ -f $MOD_INFO_PLIST_PATH ]]; then
 		RESULT=$(plistb "Print $MOD_KEY" "$MOD_INFO_PLIST_PATH") || plist_read_error
 		if [[ $RESULT != "$MAC_OS_BUILD" ]]; then
-			ask "Modify installed driver for current macOS version?" || return 0
+			ask "Modify installed driver for the current macOS version?" || return 0
 			set_required_os "$MAC_OS_BUILD"
 			RESTART_REQUIRED=true
 			return 1
@@ -554,18 +554,18 @@ printf '%bExtracting...%b\n' "$B" "$R"
 if $REPACK_OPTION; then
 	printf '%bRepack...%b\n' "$B" "$R"
 	cd "$EXTRACTED_PKG_DIR" || error "Failed to find pkgutil output directory"
-	sed -i 's/(result != 0)/(false)/g' ./Distribution
-	silent pkgutil --flatten . "$REPACK" || error "pkgutil error" $?
-	printf 'Installer is running...'
+	silent /usr/bin/sed -i.sed 's/(result != 0)/(false)/g' ./Distribution
+	silent rm -f ./*.sed
+	silent /usr/sbin/pkgutil --flatten . "$REPACK" || error "pkgutil error" $?
+	printf 'Installer is running...\n'
 	RESTART_REQUIRED=true
 	CHANGES_MADE=true
 	silent /usr/sbin/installer -pkg "$REPACK" -target / || error "installer error" $?
-	printf ' %bOK%b\n' "$B" "$R"
 	check_required_os || update_caches
 	bye
 fi
 
-# Extract
+# Extract drivers
 
 DIRS=("$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT")
 if [[ ${#DIRS[@]} = 1 ]] && ! [[ ${DIRS[0]} =~ "*" ]]; then
