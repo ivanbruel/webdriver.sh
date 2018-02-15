@@ -21,7 +21,7 @@ brew install webdriver.sh
 sudo webdriver
 ```
 
-Install/update to the latest available Nvidia web drivers for your current version of macOS
+Installs/updates to the latest available Nvidia web drivers for your current version of macOS.
 
 #### Install a specific driver version
 
@@ -29,7 +29,7 @@ Install/update to the latest available Nvidia web drivers for your current versi
 sudo webdriver -u URL
 ```
 
-Install the drivers from the package at URL (without version checks). There is a nice list of available drivers/URLs maintained [here](http://www.macvidcards.com/drivers.html).
+Installs the drivers from the package at URL (without version checks). There is a nice list of available drivers/URLs maintained [here](http://www.macvidcards.com/drivers.html)
 
 #### Uninstall
 
@@ -37,7 +37,7 @@ Install the drivers from the package at URL (without version checks). There is a
 sudo webdriver -r
 ```
 
-Removes Nvidia's web drivers from your system
+Removes Nvidia's web drivers from your system.
 
 #### Patch drivers to load on a different version of macOS
 
@@ -45,7 +45,7 @@ Removes Nvidia's web drivers from your system
 sudo webdriver -m [build]
 ```
 
-Modify the installed driver's NVDARequiredOS. If no [build] is provided for option -m, the installed macOS's build version string will be used.
+Modifies the installed driver's NVDARequiredOS. If no [build] is provided for option -m, the installed macOS's build version string will be used.
 
 #### Show help
 
@@ -53,7 +53,7 @@ Modify the installed driver's NVDARequiredOS. If no [build] is provided for opti
 webdriver -h
 ```
 
-Display help, lists all available options
+Displays help, lists all available options
 
 ## Configuration
 
@@ -61,23 +61,23 @@ The current web drivers will be uninstalled when you install new drivers, you ca
 
 ## F.A.Q.
 
-#### Is webdriver.sh compatible with regular or other third party methods of driver installation?
+#### Is webdriver.sh compatible with regular, or other third-party methods of driver installation?
 
-Yes, use webdriver.sh at any time, before or after using any other method of driver installation.
+Yes, you can use webdriver.sh before or after using any other method of driver installation.
 
 #### Does webdriver.sh install the Nvidia preference pane?
 
-No, you can install it at any time via Nvidia's installer package - webdriver.sh works fine alongside it or without it.
+No, you can install it at any point via Nvidia's installer package - webdriver.sh works fine alongside it or without it.
 
 #### Will webdriver.sh mess with Nvidia's installer or 'repackage' the driver?
 
-No, there are [other tools](https://www.google.com/search?q=nvidia+web+driver+repackager) available for doing this.  [NvidiaWebDriverRepackager](https://github.com/Pavo-IM/NvidiaWebDriverRepackager)
+No, there are [other tools](https://www.google.com/search?q=nvidia+web+driver+repackager) available for doing this. For example,  [NvidiaWebDriverRepackager](https://github.com/Pavo-IM/NvidiaWebDriverRepackager)
 
-#### What about uninstalling, without repackaging won't there be problems?
+#### What about uninstalling, won't there be problems without repackaging?
 
-No, Nvidia's own installer runs a perl script that removes everything installed by webdriver.sh.
+No, Nvidia's own installer runs a perl script that removes anything that was installed by webdriver.sh
 
-#### Can't i just uninstall the drivers using webdriver.sh?
+#### Can't I just uninstall the drivers using webdriver.sh?
 
 Yes, sudo webdriver -r
 
