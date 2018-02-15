@@ -17,19 +17,19 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.0.17"
+SCRIPT_VERSION="1.0.18"
 
 R='\e[0m'	# no formatting
 B='\e[1m'	# bold
 U='\e[4m'	# underline
 
-if ! /usr/bin/sw_vers -productVersion | grep "10.13" > /dev/null 2>&1; then
+if ! /usr/bin/sw_vers -productVersion | /usr/bin/grep "10.13" > /dev/null 2>&1; then
 	printf 'Unsupported macOS version'
 	exit 1
 fi
 
-MAC_OS_BUILD=$(/usr/bin/sw_vers -buildVersion)
-if [[ $? != 0 ]]; then
+
+if ! MAC_OS_BUILD=$(/usr/bin/sw_vers -buildVersion); then
 	printf 'sw_vers error\n'
 	exit $?
 fi
@@ -37,7 +37,7 @@ fi
 TMP_DIR=$(/usr/bin/mktemp -dt webdriver)
 REMOTE_UPDATE_PLIST="https://gfestage.nvidia.com/mac-update"
 CHANGES_MADE=false
-PROMPT_REBOOT=true
+RESTART_REQUIRED=true
 NO_CACHE_UPDATE_OPTION=false
 REINSTALL_OPTION=false
 REINSTALL_MESSAGE=false
@@ -56,7 +56,7 @@ EGPU_INFO_PLIST_PATH="/Library/Extensions/NVDAEGPUSupport.kext/Contents/Info.pli
 MOD_KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
 BREW_PREFIX=$(brew --prefix 2> /dev/null)
 HOST_PREFIX="/usr/local"
-BASENAME=$(basename "$0")
+BASENAME=$(/usr/bin/basename "$0")
 RAW_ARGS="$@"
 (( CACHES_ERROR = 0 ))
 (( COMMAND_COUNT = 0 ))
@@ -68,20 +68,20 @@ if [[ $BASENAME =~ "system-update" ]]; then
 fi
 
 function usage() {
-	echo "Usage: $BASENAME [-f] [-c] [-u url|-r|-m [build]|-p]"
-	echo "          -u URL        install driver package at URL, no version checks"
-	echo "          -r            uninstall drivers"
-	echo "          -m [build]    modify the current driver's NVDARequiredOS"
-	echo "          -f            reinstall the current drivers"
-        echo "          -c            don't update caches"
-	echo "          -p            download the updates property list and exit"
+	printf 'Usage: %s [-f] [-c] [-u URL|-r|-m [BUILD]|-p]\n' "$BASENAME"
+	printf '          -u URL        install driver package at URL, no version checks\n'
+	printf '          -r            uninstall drivers\n'
+	printf "          -m [BUILD]    modify the current driver's NVDARequiredOS\n"
+	printf '          -f            re-install the current drivers\n'
+        printf "          -c            don't update caches\n"
+	printf '          -p            download the updates property list and exit\n'
 }
 
 function version() {
-	echo "webdriver.sh $SCRIPT_VERSION Copyright © 2017-2018 vulgo"
-	echo "This is free software: you are free to change and redistribute it."
-	echo "There is NO WARRANTY, to the extent permitted by law."
-	echo "See the GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>"
+	printf 'webdriver.sh %s Copyright © 2017-2018 vulgo\n' "$SCRIPT_VERSION"
+	printf 'This is free software: you are free to change and redistribute it.\n'
+	printf 'There is NO WARRANTY, to the extent permitted by law.\n'
+	printf 'See the GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n'
 }
 
 while getopts ":hvpu:rm:cfSy" OPTION; do
@@ -108,7 +108,7 @@ while getopts ":hvpu:rm:cfSy" OPTION; do
 		(( COMMAND_COUNT += 1 ));;
 	"c")
 		NO_CACHE_UPDATE_OPTION=true
-		PROMPT_REBOOT=false;;
+		RESTART_REQUIRED=false;;
 	"f")
 		REINSTALL_OPTION=true;;
 	"S")	
@@ -140,6 +140,7 @@ done
 function silent() {
 	# silent $@: args... 
 	"$@" > /dev/null 2>&1
+	return $?
 }
 
 function error() {
@@ -194,19 +195,23 @@ fi
 
 # Check root
 
-USER_ID=$(id -u)
-if [[ $USER_ID != "0" ]]; then
+if [[ $(/usr/bin/id -u) != "0" ]]; then
 	printf 'Run it as root: sudo %s %s' "$BASENAME" "$RAW_ARGS"
 	exit 0
 fi
 
 # Check SIP/file system permissions
 
-silent touch /System || error "Is SIP enabled?"
+if ! /usr/bin/touch /System; then
+	printf 'Permission denied.\n'
+	printf 'Ensure that SIP is disabled.\n'
+	printf 'See: csrutil(8)\n'
+	exit 1
+fi
 
 function bye() {
 	printf 'Complete.'
-	if $PROMPT_REBOOT; then
+	if $RESTART_REQUIRED; then
 		printf ' You should reboot now.\n'
 	else
 		printf '\n'
@@ -219,23 +224,24 @@ function warning() {
 	printf '%bWarning%b: %s\n' "$U" "$R" "$1" 
 }
 
-function post_install() {
-	# post_install $1: extracted_package_dir
-	local INSTALL_CONF="etc/webdriver.sh/post-install.conf"
-	if [[ -f "${BREW_PREFIX}/${INSTALL_CONF}" ]]; then
-		"${BREW_PREFIX}/${INSTALL_CONF}" "$1"
-	elif [[ -f "${HOST_PREFIX}/${INSTALL_CONF}" ]]; then
-		"${HOST_PREFIX}/${INSTALL_CONF}" "$1"
+function etc() {
+	# exec_conf $1: path_to_script $2: arg_1
+	if [[ -f "${BREW_PREFIX}${1}" ]]; then
+		"${BREW_PREFIX}${1}" "$2"
+	elif [[ -f "${HOST_PREFIX}${1}" ]]; then
+		"${HOST_PREFIX}${1}" "$2"
 	fi
 }
 
+function post_install() {
+	# post_install $1: extracted_package_dir
+	local SCRIPT="/etc/webdriver.sh/post-install.conf"
+	etc "$SCRIPT" "$1"
+}
+
 function uninstall_extra() {
-	local UNINSTALL_CONF="etc/webdriver.sh/uninstall.conf"
-	if [[ -f "${BREW_PREFIX}/${UNINSTALL_CONF}" ]]; then
-		"${BREW_PREFIX}/${UNINSTALL_CONF}"
-	elif [[ -f "${HOST_PREFIX}/${UNINSTALL_CONF}" ]]; then
-		"${HOST_PREFIX}/${UNINSTALL_CONF}"
-	fi
+	local SCRIPT="/etc/webdriver.sh/uninstall.conf"
+	etc "$SCRIPT"
 }
 
 function uninstall_drivers() {
@@ -271,25 +277,25 @@ function update_caches() {
 	local LE="caches updated for /Library/Extensions"
 	local RESULT=
 	RESULT=$(/usr/sbin/kextcache -v 2 -i / 2>&1)
-	echo "$RESULT" | grep "$PLK" > /dev/null 2>&1 \
+	silent /usr/bin/grep "$PLK" <<< "$RESULT" \
 		|| caches_error "There was a problem creating the prelinked kernel"
-	echo "$RESULT" | grep "$SLE" > /dev/null 2>&1 \
+	silent /usr/bin/grep "$SLE" <<< "$RESULT" \
 		|| caches_error "There was a problem updating directory caches for /S/L/E"
-	echo "$RESULT" | grep "$LE" > /dev/null 2>&1 \
+	silent /usr/bin/grep "$LE" <<< "$RESULT" \
 		|| caches_error "There was a problem updating directory caches for /L/E"
 	if (( CACHES_ERROR != 0 )); then
 		printf '\nTo try again use:\n%bsudo kextcache -i /%b\n\n' "$B" "$R"
-		PROMPT_REBOOT=false
+		RESTART_REQUIRED=false
 	fi	 
 }
 
 function ask() {
 	# ask $1: message
-	local INPUT=
+	local ASK=
 	printf '%b%s%b' "$B" "$1" "$R"
-	read -n 1 -srp " [y/N]" INPUT
+	read -n 1 -srp " [y/N]" ASK
 	printf '\n'
-	if [[ $INPUT == "y" || $INPUT == "Y" ]]; then
+	if [[ $ASK == "y" || $ASK == "Y" ]]; then
 		return 0
 	else
 		return 1
@@ -320,7 +326,7 @@ function plistb() {
 function sha512() {
 	# checksum $1: file
 	local RESULT=
-	RESULT=$(/usr/bin/shasum -a 512 "$1" | awk '{print $1}')
+	RESULT=$(/usr/bin/shasum -a 512 "$1" | /usr/bin/awk '{print $1}')
 	[[ $RESULT ]] && printf '%s' "$RESULT"
 }
 
@@ -362,9 +368,10 @@ function check_required_os() {
 	if [[ -f $MOD_INFO_PLIST_PATH ]]; then
 		RESULT=$(plistb "Print $MOD_KEY" "$MOD_INFO_PLIST_PATH") || plist_read_error
 		if [[ $RESULT != "$MAC_OS_BUILD" ]]; then
-			ask "Modify installed driver to start on this macOS version (${MAC_OS_BUILD})?" || return 0
+			ask "Modify installed driver for current macOS version?" || return 0
 			set_required_os "$MAC_OS_BUILD"
-			PROMPT_REBOOT=true
+			RESTART_REQUIRED=true
+			return 1
 		fi
 	fi
 }
@@ -409,7 +416,7 @@ function installed_version() {
 	if [[ -f $INSTALLED_VERSION ]]; then
 		GET_INFO_STRING=$(plistb "Print :CFBundleGetInfoString" "$INSTALLED_VERSION")
 		GET_INFO_STRING="${GET_INFO_STRING##* }"
-		echo "$GET_INFO_STRING"
+		printf "$GET_INFO_STRING"
 	fi
 }
 
@@ -433,8 +440,9 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 		|| error "Couldn't get updates data from Nvidia" $?
 
 	# Check for an update
-	(( i = 0 ))
-	while (( i < 200 )); do
+	c=$(/usr/bin/grep -c "<dict>" "$DOWNLOADED_UPDATE_PLIST")
+	(( c -= 1, i = 0 ))
+	while (( i < c )); do
 		if ! REMOTE_MAC_OS_BUILD=$(plistb "Print :updates:${i}:OS" "$DOWNLOADED_UPDATE_PLIST"); then
 			unset REMOTE_MAC_OS_BUILD
 			break
@@ -465,6 +473,7 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 		# Latest already installed, exit
 		printf '%s for %s already installed\n' "$REMOTE_VERSION" "$MAC_OS_BUILD"
 		if ! $REINSTALL_OPTION; then
+			printf 'To re-install use -f\n' "$BASENAME"
 			check_required_os
 			if $CHANGES_MADE; then
 				update_caches
@@ -482,7 +491,7 @@ else
 	
 	# Invoked with -u option, proceed to installation
 	printf 'URL: %s\n' "$REMOTE_URL"
-	PROMPT_REBOOT=false
+	RESTART_REQUIRED=false
 	
 fi
 
@@ -498,16 +507,18 @@ fi
 
 # Check URL
 
-REMOTE_HOST=$(printf '%s' "$REMOTE_URL" | awk -F/ '{print $3}')
+REMOTE_HOST=$(printf '%s' "$REMOTE_URL" | /usr/bin/awk -F/ '{print $3}')
 if ! silent /usr/bin/host "$REMOTE_HOST"; then
 	if [[ $COMMAND == "USER_PROVIDED_URL" ]]; then
 		error "Unable to resolve host, check your URL"; fi
-	REMOTE_URL="https://images.nvidia.com/mac/pkg/${REMOTE_VERSION%%.*}/WebDriver-${REMOTE_VERSION}.pkg"
+	REMOTE_URL="https://images.nvidia.com/mac/pkg/"
+	REMOTE_URL+="${REMOTE_VERSION%%.*}"
+	REMOTE_URL+="/WebDriver-${REMOTE_VERSION}.pkg"
 fi
 HEADERS=$(/usr/bin/curl -I "$REMOTE_URL" 2>&1) \
 	|| error "Failed to download HTTP headers"
-echo "$HEADERS" | grep "content-type: application/octet-stream" > /dev/null 2>&1 \
-	|| error "Unexpected HTTP content type"
+silent /usr/bin/grep "octet-stream" <<< "$HEADERS" \
+	|| warning "Unexpected HTTP content type"
 if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 	printf 'URL: %s\n' "$REMOTE_URL"; fi
 
@@ -515,7 +526,7 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 
 printf '%bDownloading package...%b\n' "$B" "$R"
 /usr/bin/curl --connect-timeout 15 -# -o "$DOWNLOADED_PKG" "$REMOTE_URL" \
-	|| error "Couldn't download package" $?
+	|| error "Failed to download package" $?
 
 # Checksum
 
@@ -535,25 +546,25 @@ fi
 
 printf '%bExtracting...%b\n' "$B" "$R"
 /usr/sbin/pkgutil --expand "$DOWNLOADED_PKG" "$EXTRACTED_PKG_DIR" \
-	|| error "Couldn't extract package" $?
+	|| error "Failed to extract package" $?
 DIRS=("$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT")
 if [[ ${#DIRS[@]} = 1 ]] && ! [[ ${DIRS[0]} =~ "*" ]]; then
         PAYLOAD_BASE_DIR=${DIRS[0]}
 else
-        error "Couldn't find pkgutil output directory"
+        error "Failed to find pkgutil output directory"
 fi
-cd "$PAYLOAD_BASE_DIR" || error "Couldn't find pkgutil output directory" $?
+cd "$PAYLOAD_BASE_DIR" || error "Failed to find pkgutil output directory" $?
 /usr/bin/gunzip -dc < ./Payload > ./tmp.cpio \
-	|| error "Couldn't extract package" $?
+	|| error "Failed to extract package" $?
 /usr/bin/cpio -i < ./tmp.cpio \
-	|| error "Couldn't extract package" $?
+	|| error "Failed to extract package" $?
 if [[ ! -d ./Library/Extensions || ! -d ./System/Library/Extensions ]]; then
 	error "Unexpected directory structure after extraction"; fi
 	
 # Make SQL
 
 printf '%bApproving kexts...%b\n' "$B" "$R"
-cd "$PAYLOAD_BASE_DIR" || error "Couldn't find payload base directory" $?
+cd "$PAYLOAD_BASE_DIR" || error "Failed to find payload base directory" $?
 KEXT_INFO_PLISTS=(./Library/Extensions/*.kext/Contents/Info.plist)
 for PLIST in "${KEXT_INFO_PLISTS[@]}"; do
 	BUNDLE_ID=$(plistb "Print :CFBundleIdentifier" "$PLIST") || plist_read_error
@@ -572,7 +583,7 @@ CHANGES_MADE=true
 
 printf '%bInstalling...%b\n' "$B" "$R"
 uninstall_drivers
-cd "$PAYLOAD_BASE_DIR" || error "Couldn't find payload base directory" $?
+cd "$PAYLOAD_BASE_DIR" || error "Failed to find payload base directory" $?
 cp -r ./Library/Extensions/* /Library/Extensions
 cp -r ./System/Library/Extensions/* /System/Library/Extensions
 post_install "$PAYLOAD_BASE_DIR"
