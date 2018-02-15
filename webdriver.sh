@@ -43,10 +43,12 @@ REINSTALL_OPTION=false
 REINSTALL_MESSAGE=false
 SYSTEM_OPTION=false
 YES_OPTION=false
+REPACK_OPTION=false
 DOWNLOADED_UPDATE_PLIST="${TMP_DIR}/nvwebupdates.plist"
 DOWNLOADED_PKG="${TMP_DIR}/nvweb.pkg"
 EXTRACTED_PKG_DIR="${TMP_DIR}/nvwebinstall"
 SQL_QUERY_FILE="${TMP_DIR}/nvweb.sql"
+REPACK="${TMP_DIR}/repack.pkg"
 SQL_DEVELOPER_NAME="NVIDIA Corporation"
 SQL_TEAM_ID="6KR3T733EC"
 INSTALLED_VERSION="/Library/Extensions/GeForceWeb.kext/Contents/Info.plist"
@@ -84,7 +86,7 @@ function version() {
 	printf 'See the GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n'
 }
 
-while getopts ":hvpu:rm:cfSy" OPTION; do
+while getopts ":hvpu:rm:cfSy!" OPTION; do
 	case $OPTION in
 	"h")
 		usage
@@ -113,6 +115,8 @@ while getopts ":hvpu:rm:cfSy" OPTION; do
 		REINSTALL_OPTION=true;;
 	"S")	
 		SYSTEM_OPTION=true;;
+	"!")
+		REPACK_OPTION=true;;
 	"y")
 		YES_OPTION=true;;
 	"?")
@@ -541,12 +545,28 @@ else
 	printf 'SHA512: %s\n' "$LOCAL_CHECKSUM"
 fi
 
-
-# Extract
+# Unflatten
 
 printf '%bExtracting...%b\n' "$B" "$R"
 /usr/sbin/pkgutil --expand "$DOWNLOADED_PKG" "$EXTRACTED_PKG_DIR" \
 	|| error "Failed to extract package" $?
+
+if $REPACK_OPTION; then
+	printf '%bRepack...%b\n' "$B" "$R"
+	cd "$EXTRACTED_PKG_DIR" || error "Failed to find pkgutil output directory"
+	sed -i 's/(result != 0)/(false)/g' ./Distribution
+	silent pkgutil --flatten . "$REPACK" || error "pkgutil error" $?
+	printf 'Installer is running...'
+	RESTART_REQUIRED=true
+	CHANGES_MADE=true
+	silent /usr/sbin/installer -pkg "$REPACK" -target / || error "installer error" $?
+	printf ' %bOK%b\n' "$B" "$R"
+	check_required_os || update_caches
+	bye
+fi
+
+# Extract
+
 DIRS=("$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT")
 if [[ ${#DIRS[@]} = 1 ]] && ! [[ ${DIRS[0]} =~ "*" ]]; then
         PAYLOAD_BASE_DIR=${DIRS[0]}
