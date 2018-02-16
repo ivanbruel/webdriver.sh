@@ -34,15 +34,38 @@ if ! MAC_OS_BUILD=$(/usr/bin/sw_vers -buildVersion); then
 fi
 
 KEXT_ALLOWED=false
-FS_ALLOWED=false    
+FS_ALLOWED=false
+KEXT_PATTERN='System Integrity Protection status: disabled|Kext Signing: disabled'
 CSR_STATUS=$(/usr/bin/csrutil status)
-/usr/bin/grep -E 'System Integrity Protection status: disabled|Kext Signing: disabled' \
-	<<< "$CSR_STATUS" > /dev/null && KEXT_ALLOWED=true
-/usr/bin/grep -E 'System Integrity Protection status: disabled|Filesystem Protections: disabled' \
-	<<< "$CSR_STATUS" > /dev/null && /usr/bin/touch /System && FS_ALLOWED=true
+/usr/bin/csrutil status | /usr/bin/grep -E -e "$KEXT_PATTERN" <<< "$CSR_STATUS" > /dev/null \
+	&& KEXT_ALLOWED=true
+/usr/bin/touch /System > /dev/null 2>&1 \
+	&& FS_ALLOWED=true
+
+# Variables
+
+REMOTE_UPDATE_PLIST="https://gfestage.nvidia.com/mac-update"
+SQL_DEVELOPER_NAME="NVIDIA Corporation"
+SQL_TEAM_ID="6KR3T733EC"
+BASENAME=$(/usr/bin/basename "$0")
+RAW_ARGS="$*"
 
 TMP_DIR=$(/usr/bin/mktemp -dt webdriver)
-REMOTE_UPDATE_PLIST="https://gfestage.nvidia.com/mac-update"
+DOWNLOADED_UPDATE_PLIST="${TMP_DIR}/nvwebupdates.plist"
+DOWNLOADED_PKG="${TMP_DIR}/nvweb.pkg"
+EXTRACTED_PKG_DIR="${TMP_DIR}/nvwebinstall"
+SQL_QUERY_FILE="${TMP_DIR}/nvweb.sql"
+PACKAGE="${TMP_DIR}/com.nvidia.web-driver.pkg"
+DRIVERS_ROOT="${TMP_DIR}/root"
+DRIVERS_DIR_HINT="NVWebDrivers.pkg"
+STARTUP_KEXT="/Library/Extensions/NVDAStartupWeb.kext"
+MOD_INFO_PLIST_PATH="${STARTUP_KEXT}/Contents/Info.plist"
+INSTALLED_VERSION="/Library/Extensions/GeForceWeb.kext/Contents/Info.plist"
+EGPU_INFO_PLIST_PATH="/Library/Extensions/NVDAEGPUSupport.kext/Contents/Info.plist"
+MOD_KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
+BREW_PREFIX=$(brew --prefix 2> /dev/null)
+HOST_PREFIX="/usr/local"
+
 CHANGES_MADE=false
 RESTART_REQUIRED=true
 NO_CACHE_UPDATE_OPTION=false
@@ -51,26 +74,9 @@ REINSTALL_MESSAGE=false
 SYSTEM_OPTION=false
 YES_OPTION=false
 INSTALLER_OPTION=false
-DOWNLOADED_UPDATE_PLIST="${TMP_DIR}/nvwebupdates.plist"
-DOWNLOADED_PKG="${TMP_DIR}/nvweb.pkg"
-EXTRACTED_PKG_DIR="${TMP_DIR}/nvwebinstall"
-SQL_QUERY_FILE="${TMP_DIR}/nvweb.sql"
-PACKAGE="${TMP_DIR}/com.nvidia.web-driver.pkg"
-DRIVERS_ROOT="${TMP_DIR}/root"
-SQL_DEVELOPER_NAME="NVIDIA Corporation"
-SQL_TEAM_ID="6KR3T733EC"
-INSTALLED_VERSION="/Library/Extensions/GeForceWeb.kext/Contents/Info.plist"
-DRIVERS_DIR_HINT="NVWebDrivers.pkg"
-STARTUP_KEXT="/Library/Extensions/NVDAStartupWeb.kext"
-MOD_INFO_PLIST_PATH="${STARTUP_KEXT}/Contents/Info.plist"
-EGPU_INFO_PLIST_PATH="/Library/Extensions/NVDAEGPUSupport.kext/Contents/Info.plist"
-MOD_KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
-BREW_PREFIX=$(brew --prefix 2> /dev/null)
-HOST_PREFIX="/usr/local"
-BASENAME=$(/usr/bin/basename "$0")
-RAW_ARGS="$@"
 (( CACHES_ERROR = 0 ))
 (( COMMAND_COUNT = 0 ))
+
 
 if [[ $BASENAME =~ "system-update" ]]; then
 	[[ $1 != "-u" ]] && exit 1
@@ -82,9 +88,9 @@ function usage() {
 	printf 'Usage: %s [-f] [-c] [-u URL|-r|-m [BUILD]|-p]\n' "$BASENAME"
 	printf '          -u URL        install driver package at URL, no version checks\n'
 	printf '          -r            uninstall drivers\n'
-	printf "          -m [BUILD]    modify the current driver's NVDARequiredOS\n"
+	printf "          -m [BUILD]    modify the current driver's NVDARequiredOS"'\n'
 	printf '          -f            re-install the current drivers\n'
-        printf "          -c            don't update caches\n"
+        printf "          -c            don't update caches"'\n'
 	printf '          -p            download the updates property list and exit\n'
 }
 
@@ -118,6 +124,7 @@ while getopts ":hvpu:rm:cfSy!" OPTION; do
 		COMMAND="SET_REQUIRED_OS_AND_EXIT"
 		(( COMMAND_COUNT += 1 ));;
 	"c")
+		$FS_ALLOWED
 		NO_CACHE_UPDATE_OPTION=true
 		RESTART_REQUIRED=false;;
 	"f")
@@ -192,7 +199,7 @@ if [[ $COMMAND == "GET_PLIST_AND_EXIT" ]]; then
 		else
 			DESTINATION="${DOWNLOAD_PATH}-${i}.plist"
 		fi
-		if ! [[ -f "$DESTINATION" ]]; then
+		if [[ ! -f "$DESTINATION" ]]; then
 			break
 		fi
 		(( i += 1 ))
@@ -421,7 +428,7 @@ function installed_version() {
 	if [[ -f $INSTALLED_VERSION ]]; then
 		GET_INFO_STRING=$(plistb "Print :CFBundleGetInfoString" "$INSTALLED_VERSION")
 		GET_INFO_STRING="${GET_INFO_STRING##* }"
-		printf "$GET_INFO_STRING"
+		printf "%s" "$GET_INFO_STRING"
 	fi
 }
 
@@ -478,7 +485,7 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 		# Latest already installed, exit
 		printf '%s for %s already installed\n' "$REMOTE_VERSION" "$MAC_OS_BUILD"
 		if ! $REINSTALL_OPTION; then
-			printf 'To re-install use -f\n' "$BASENAME"
+			# printf 'To re-install use -f\n' "$BASENAME"
 			check_required_os
 			if $CHANGES_MADE; then
 				update_caches
@@ -537,7 +544,7 @@ printf '%bDownloading package...%b\n' "$B" "$R"
 
 LOCAL_CHECKSUM=$(sha512 "$DOWNLOADED_PKG")
 if [[ $REMOTE_CHECKSUM ]]; then
-	if [[  $LOCAL_CHECKSUM == "$REMOTE_CHECKSUM" ]]; then
+	if [[ $LOCAL_CHECKSUM == "$REMOTE_CHECKSUM" ]]; then
 		printf 'SHA512: Verified\n'
 	else
 		error "SHA512 verification failed"
@@ -552,7 +559,7 @@ printf '%bExtracting...%b\n' "$B" "$R"
 /usr/sbin/pkgutil --expand "$DOWNLOADED_PKG" "$EXTRACTED_PKG_DIR" \
 	|| error "Failed to extract package" $?
 DIRS=("$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT")
-if [[ ${#DIRS[@]} = 1 ]] && ! [[ ${DIRS[0]} =~ "*" ]]; then
+if [[ ${#DIRS[@]} == 1 ]] && [[ ! ${DIRS[0]} =~ "*" ]]; then
         DRIVERS_COMPONENT_DIR=${DIRS[0]}
 else
         error "Failed to find pkgutil output directory"
@@ -591,27 +598,35 @@ fi
 printf '%bInstalling...%b\n' "$B" "$R"
 CHANGES_MADE=true
 uninstall_drivers
+NEEDS_KEXTCACHE=false
 if ! $FS_ALLOWED || $INSTALLER_OPTION; then
 	silent /usr/bin/pkgbuild --identifier com.nvidia.web-driver --root "$DRIVERS_ROOT" "$PACKAGE"
-	silent /usr/sbin/installer -pkg "$PACKAGE" -target / || error "installer error" $?
-	NEEDS_KEXTCACHE=false
+	silent /usr/sbin/installer -allowUntrusted -pkg "$PACKAGE" -target / || error "installer error" $?
 else
-	cp -r ${DRIVERS_ROOT}/Library/Extensions/* /Library/Extensions
-	cp -r ${DRIVERS_ROOT}/System/Library/Extensions/* /System/Library/Extensions
+	cp -r "${DRIVERS_ROOT}"/Library/Extensions/* /Library/Extensions
+	cp -r "${DRIVERS_ROOT}"/System/Library/Extensions/* /System/Library/Extensions
 	NEEDS_KEXTCACHE=true
 fi
 post_install "$DRIVERS_ROOT"
 
-# Update caches, set nvram variable
+# Check extensions are loadable, update caches, set nvram variable
 
+if ! silent /usr/bin/kextutil -tn "$STARTUP_KEXT"; then
+	silent /usr/bin/osascript -e "beep"
+	warning 'Do not restart until this process has completed!'
+	printf 'Allow %s in security preferences to continue...\n' "$SQL_DEVELOPER_NAME"
+	NEEDS_KEXTCACHE=true
+	REVEAL='tell app "System Preferences" to reveal anchor "General"'
+	REVEAL+=' of pane id "com.apple.preference.security"'
+	ACTIVATE='tell app "System Preferences" to activate'
+	while ! silent /usr/bin/kextutil -tn "$STARTUP_KEXT"; do
+		silent /usr/bin/osascript -e "$REVEAL" -e "$ACTIVATE"
+		sleep 5
+	done
+fi
 check_required_os || NEEDS_KEXTCACHE=true
 $NEEDS_KEXTCACHE && update_caches
 set_nvram
-if ! $FS_ALLOWED || ! $KEXT_ALLOWED; then
-	if ! silent /usr/bin/kextutil -tn "$STARTUP_KEXT"; then
-		silent /usr/bin/osascript -e 'tell app "System Preferences" to reveal anchor "General" of pane id "com.apple.preference.security"' -e 'tell app "System Preferences" to activate'
-	fi
-fi
 
 # Exit
 
