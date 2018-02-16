@@ -28,11 +28,18 @@ if ! /usr/bin/sw_vers -productVersion | /usr/bin/grep "10.13" > /dev/null 2>&1; 
 	exit 1
 fi
 
-
 if ! MAC_OS_BUILD=$(/usr/bin/sw_vers -buildVersion); then
 	printf 'sw_vers error\n'
 	exit $?
 fi
+
+KEXT_ALLOWED=false
+FS_ALLOWED=false    
+CSR_STATUS=$(/usr/bin/csrutil status)
+/usr/bin/grep -E 'System Integrity Protection status: disabled|Kext Signing: disabled' \
+	<<< "$CSR_STATUS" > /dev/null && KEXT_ALLOWED=true
+/usr/bin/grep -E 'System Integrity Protection status: disabled|Filesystem Protections: disabled' \
+	<<< "$CSR_STATUS" > /dev/null && /usr/bin/touch /System && FS_ALLOWED=true
 
 TMP_DIR=$(/usr/bin/mktemp -dt webdriver)
 REMOTE_UPDATE_PLIST="https://gfestage.nvidia.com/mac-update"
@@ -43,17 +50,19 @@ REINSTALL_OPTION=false
 REINSTALL_MESSAGE=false
 SYSTEM_OPTION=false
 YES_OPTION=false
-REPACK_OPTION=false
+INSTALLER_OPTION=false
 DOWNLOADED_UPDATE_PLIST="${TMP_DIR}/nvwebupdates.plist"
 DOWNLOADED_PKG="${TMP_DIR}/nvweb.pkg"
 EXTRACTED_PKG_DIR="${TMP_DIR}/nvwebinstall"
 SQL_QUERY_FILE="${TMP_DIR}/nvweb.sql"
-REPACK="${TMP_DIR}/repack.pkg"
+PACKAGE="${TMP_DIR}/com.nvidia.web-driver.pkg"
+DRIVERS_ROOT="${TMP_DIR}/root"
 SQL_DEVELOPER_NAME="NVIDIA Corporation"
 SQL_TEAM_ID="6KR3T733EC"
 INSTALLED_VERSION="/Library/Extensions/GeForceWeb.kext/Contents/Info.plist"
 DRIVERS_DIR_HINT="NVWebDrivers.pkg"
-MOD_INFO_PLIST_PATH="/Library/Extensions/NVDAStartupWeb.kext/Contents/Info.plist"
+STARTUP_KEXT="/Library/Extensions/NVDAStartupWeb.kext"
+MOD_INFO_PLIST_PATH="${STARTUP_KEXT}/Contents/Info.plist"
 EGPU_INFO_PLIST_PATH="/Library/Extensions/NVDAEGPUSupport.kext/Contents/Info.plist"
 MOD_KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
 BREW_PREFIX=$(brew --prefix 2> /dev/null)
@@ -116,7 +125,7 @@ while getopts ":hvpu:rm:cfSy!" OPTION; do
 	"S")	
 		SYSTEM_OPTION=true;;
 	"!")
-		REPACK_OPTION=true;;
+		INSTALLER_OPTION=true;;
 	"y")
 		YES_OPTION=true;;
 	"?")
@@ -204,16 +213,7 @@ if [[ $(/usr/bin/id -u) != "0" ]]; then
 	exit 0
 fi
 
-# Check SIP/file system permissions
-
-if ! /usr/bin/touch /System; then
-	printf 'Permission denied.\n'
-	printf 'Ensure that SIP is disabled.\n'
-	printf 'See: csrutil(8)\n'
-	exit 1
-fi
-
-function bye() {
+function exit_after_install() {
 	printf 'Complete.'
 	if $RESTART_REQUIRED; then
 		printf ' You should reboot now.\n'
@@ -375,6 +375,7 @@ function check_required_os() {
 			ask "Modify installed driver for the current macOS version?" || return 0
 			set_required_os "$MAC_OS_BUILD"
 			RESTART_REQUIRED=true
+			$KEXT_ALLOWED || warning "Disable SIP, run 'kextcache -i /' to allow modified drivers to load"
 			return 1
 		fi
 	fi
@@ -413,7 +414,7 @@ if [[ $COMMAND == "UNINSTALL_DRIVERS_AND_EXIT" ]]; then
 	uninstall_drivers
 	update_caches
 	unset_nvram
-	bye
+	exit_after_install
 fi
 
 function installed_version() {
@@ -550,72 +551,73 @@ fi
 printf '%bExtracting...%b\n' "$B" "$R"
 /usr/sbin/pkgutil --expand "$DOWNLOADED_PKG" "$EXTRACTED_PKG_DIR" \
 	|| error "Failed to extract package" $?
-
-if $REPACK_OPTION; then
-	printf '%bRepack...%b\n' "$B" "$R"
-	cd "$EXTRACTED_PKG_DIR" || error "Failed to find pkgutil output directory"
-	silent /usr/bin/sed -i.sed 's/(result != 0)/(false)/g' ./Distribution
-	silent rm -f ./*.sed
-	silent /usr/sbin/pkgutil --flatten . "$REPACK" || error "pkgutil error" $?
-	printf 'Installer is running...\n'
-	RESTART_REQUIRED=true
-	CHANGES_MADE=true
-	silent /usr/sbin/installer -pkg "$REPACK" -target / || error "installer error" $?
-	check_required_os || update_caches
-	bye
+DIRS=("$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT")
+if [[ ${#DIRS[@]} = 1 ]] && ! [[ ${DIRS[0]} =~ "*" ]]; then
+        DRIVERS_COMPONENT_DIR=${DIRS[0]}
+else
+        error "Failed to find pkgutil output directory"
 fi
 
 # Extract drivers
 
-DIRS=("$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT")
-if [[ ${#DIRS[@]} = 1 ]] && ! [[ ${DIRS[0]} =~ "*" ]]; then
-        PAYLOAD_BASE_DIR=${DIRS[0]}
-else
-        error "Failed to find pkgutil output directory"
-fi
-cd "$PAYLOAD_BASE_DIR" || error "Failed to find pkgutil output directory" $?
-/usr/bin/gunzip -dc < ./Payload > ./tmp.cpio \
+mkdir "$DRIVERS_ROOT"
+/usr/bin/gunzip -dc < "${DRIVERS_COMPONENT_DIR}/Payload" > "${DRIVERS_ROOT}/tmp.cpio" \
 	|| error "Failed to extract package" $?
-/usr/bin/cpio -i < ./tmp.cpio \
+cd "$DRIVERS_ROOT" \
+	|| error "Failed to find drivers root directory" $?
+/usr/bin/cpio -i < "${DRIVERS_ROOT}/tmp.cpio" \
 	|| error "Failed to extract package" $?
-if [[ ! -d ./Library/Extensions || ! -d ./System/Library/Extensions ]]; then
+silent rm -f "${DRIVERS_ROOT}/tmp.cpio"
+if [[ ! -d ${DRIVERS_ROOT}/Library/Extensions || ! -d ${DRIVERS_ROOT}/System/Library/Extensions ]]; then
 	error "Unexpected directory structure after extraction"; fi
-	
-# Make SQL
 
-printf '%bApproving kexts...%b\n' "$B" "$R"
-cd "$PAYLOAD_BASE_DIR" || error "Failed to find payload base directory" $?
-KEXT_INFO_PLISTS=(./Library/Extensions/*.kext/Contents/Info.plist)
-for PLIST in "${KEXT_INFO_PLISTS[@]}"; do
-	BUNDLE_ID=$(plistb "Print :CFBundleIdentifier" "$PLIST") || plist_read_error
-	[[ $BUNDLE_ID ]] && sql_add_kext "$BUNDLE_ID"
-done
-sql_add_kext "com.nvidia.CUDA"
+# Make SQL and allow kexts
 
-CHANGES_MADE=true
-
-# Allow kexts
-
-/usr/bin/sqlite3 /var/db/SystemPolicyConfiguration/KextPolicy < "$SQL_QUERY_FILE" \
-	|| warning "sqlite3 exit code $?, extensions may not be loadable"
+if $FS_ALLOWED; then
+	printf '%bApproving kexts...%b\n' "$B" "$R"
+	cd "$DRIVERS_ROOT" || error "Failed to find drivers root directory" $?
+	KEXT_INFO_PLISTS=(./Library/Extensions/*.kext/Contents/Info.plist)
+	for PLIST in "${KEXT_INFO_PLISTS[@]}"; do
+		BUNDLE_ID=$(plistb "Print :CFBundleIdentifier" "$PLIST") || plist_read_error
+		[[ $BUNDLE_ID ]] && sql_add_kext "$BUNDLE_ID"
+	done
+	sql_add_kext "com.nvidia.CUDA"
+	/usr/bin/sqlite3 /private/var/db/SystemPolicyConfiguration/KextPolicy < "$SQL_QUERY_FILE" \
+		|| warning "sqlite3 exit code $?"
+fi
 
 # Install
 
 printf '%bInstalling...%b\n' "$B" "$R"
+CHANGES_MADE=true
 uninstall_drivers
-cd "$PAYLOAD_BASE_DIR" || error "Failed to find payload base directory" $?
-cp -r ./Library/Extensions/* /Library/Extensions
-cp -r ./System/Library/Extensions/* /System/Library/Extensions
-post_install "$PAYLOAD_BASE_DIR"
+if ! $FS_ALLOWED || $INSTALLER_OPTION; then
+	silent /usr/bin/pkgbuild --identifier com.nvidia.web-driver --root "$DRIVERS_ROOT" "$PACKAGE"
+	silent /usr/sbin/installer -pkg "$PACKAGE" -target / || error "installer error" $?
+	NEEDS_KEXTCACHE=false
+else
+	cp -r ${DRIVERS_ROOT}/Library/Extensions/* /Library/Extensions
+	cp -r ${DRIVERS_ROOT}/System/Library/Extensions/* /System/Library/Extensions
+	NEEDS_KEXTCACHE=true
+fi
+post_install "$DRIVERS_ROOT"
 
-# Update caches and exit
+# Update caches, set nvram variable
 
-check_required_os
-update_caches
+check_required_os || NEEDS_KEXTCACHE=true
+$NEEDS_KEXTCACHE && update_caches
 set_nvram
+if ! $FS_ALLOWED || ! $KEXT_ALLOWED; then
+	if ! silent /usr/bin/kextutil -tn "$STARTUP_KEXT"; then
+		silent /usr/bin/osascript -e 'tell app "System Preferences" to reveal anchor "General" of pane id "com.apple.preference.security"' -e 'tell app "System Preferences" to activate'
+	fi
+fi
+
+# Exit
+
 delete_temporary_files
 if $SYSTEM_OPTION; then
 	printf '%bSystem update...%b\n' "$B" "$R"
 	silent /usr/sbin/softwareupdate -ir
 fi
-bye
+exit_after_install
