@@ -4,9 +4,9 @@
 
 Bash script for managing Nvidia's web drivers on macOS High Sierra.
 
-## Installing
+## Install
 
-Install webdriver.sh easily with [Homebrew](https://brew.sh)
+Installing webdriver.sh is easy with [Homebrew](https://brew.sh)
 
 ```
 brew tap vulgo/repo
