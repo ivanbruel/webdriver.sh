@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.1.0"
+SCRIPT_VERSION="1.1.1"
 
 R='\e[0m'	# no formatting
 B='\e[1m'	# bold
@@ -267,6 +267,7 @@ function uninstall_drivers() {
 		/System/Library/Extensions/NVDA*Web*"
 	# Remove drivers
 	silent mv "$EGPU_DEFAULT" "$EGPU_RENAMED"
+	# shellcheck disable=SC2086
 	silent rm -rf $REMOVE_LIST
 	# Remove driver flat package receipt
 	silent pkgutil --forget com.nvidia.web-driver
@@ -474,7 +475,7 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 			REMOTE_VERSION=$(plistb "Print :updates:${i}:version" "$DOWNLOADED_UPDATE_PLIST")
 			REMOTE_CHECKSUM=$(plistb "Print :updates:${i}:checksum" "$DOWNLOADED_UPDATE_PLIST")
 			if [[ $COMMAND == "LIST_MODE" ]]; then
-				if [[ $LM_MAJOR == $REMOTE_MAJOR ]] || $ALL_OPTION; then
+				if [[ $LM_MAJOR == "$REMOTE_MAJOR" ]] || $ALL_OPTION; then
 					LM_URLS+=("$REMOTE_URL")
 					LM_VERSIONS+=("$REMOTE_VERSION")
 					LM_CHECKSUMS+=("$REMOTE_CHECKSUM")
@@ -502,7 +503,8 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 				(( n = i + 1 ))
 				FORMAT_INDEX=$(printf '%4s |  ' $n)
 				ROW="$FORMAT_INDEX"
-				FORMAT_VERSION=$(printf "$VERSION_PAD" ${LM_VERSIONS[$i]})
+				# shellcheck disable=SC2059
+				FORMAT_VERSION=$(printf "$VERSION_PAD" "${LM_VERSIONS[$i]}")
 				ROW+="$FORMAT_VERSION  "
 				ROW+="${LM_BUILDS[$i]}"
 				printf '%s\n' "$ROW"
@@ -510,7 +512,7 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 			done | $FORMAT
 			printf '\n'
 			printf '%bWhat now?%b [1-%s] : ' "$B" "$R" "$count"
-			read int
+			read -r int
 			[[ -z $int ]] && exit_ok
 			if [[ $int =~ ^[0-9] ]] && (( int >= 1 )) && (( int <= count )); then
 				(( int -= 1 ))
@@ -520,7 +522,7 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 				REMOTE_CHECKSUM=${LM_CHECKSUMS[$int]}
 				break
 			fi
-			printf '\nTry again...\n\n' "$int"
+			printf '\nTry again...\n\n'
 			tput bel
 		done
 	fi
@@ -618,6 +620,7 @@ printf '%bExtracting...%b\n' "$B" "$R"
 /usr/sbin/pkgutil --expand "$DOWNLOADED_PKG" "$EXTRACTED_PKG_DIR" \
 	|| error "Failed to extract package" $?
 DIRS=("$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT")
+# shellcheck disable=SC2076,SC2049
 if [[ ${#DIRS[@]} == 1 ]] && [[ ! ${DIRS[0]} =~ "*" ]]; then
         DRIVERS_COMPONENT_DIR=${DIRS[0]}
 else
