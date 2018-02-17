@@ -18,35 +18,39 @@
 #
 
 SCRIPT_VERSION="1.1.1"
-R='\e[0m'	# no formatting
-B='\e[1m'	# bold
-U='\e[4m'	# underline
+
+BASENAME=$(/usr/bin/basename "$0")
+RAW_ARGS="$*"
 MACOS_PRODUCT_VERSION=$(/usr/bin/sw_vers -productVersion)
 if ! /usr/bin/grep -e "10.13" <<< "$MACOS_PRODUCT_VERSION" > /dev/null 2>&1; then
 	printf 'Unsupported macOS version'; exit 1; fi
 if ! BUILD=$(/usr/bin/sw_vers -buildVersion); then
 	printf 'sw_vers error\n'; exit $?; fi
-
-# Check SIP
+	
+# Check root
+if [[ $(/usr/bin/id -u) != "0" ]]; then
+	printf 'Run it as root: sudo %s %s' "$BASENAME" "$RAW_ARGS"; exit 0; fi
+	
+# SIP  
 KEXT_ALLOWED=false
 FS_ALLOWED=false
 KEXT_PATTERN='System Integrity Protection status: disabled|Kext Signing: disabled'
 CSR_STATUS=$(/usr/bin/csrutil status)
 /usr/bin/csrutil status | /usr/bin/grep -E -e "$KEXT_PATTERN" <<< "$CSR_STATUS" > /dev/null \
 	&& KEXT_ALLOWED=true
-/usr/bin/touch /System > /dev/null 2>&1 \
-	&& FS_ALLOWED=true
+/usr/bin/touch /System > /dev/null 2>&1 && FS_ALLOWED=true
 
 # Variables
-BASENAME=$(/usr/bin/basename "$0")
-RAW_ARGS="$*"
+R='\e[0m' # no formatting
+B='\e[1m' # bold
+U='\e[4m' # underline
 TMP_DIR=$(/usr/bin/mktemp -dt webdriver)
-DOWNLOADED_UPDATE_PLIST="${TMP_DIR}/nvwebupdates.plist"
-DOWNLOADED_PKG="${TMP_DIR}/nvweb.pkg"
-EXTRACTED_PKG_DIR="${TMP_DIR}/nvwebinstall"
-SQL_QUERY_FILE="${TMP_DIR}/nvweb.sql"
-PACKAGE="${TMP_DIR}/com.nvidia.web-driver.pkg"
-DRIVERS_ROOT="${TMP_DIR}/root"
+UPDATES_PLIST="${TMP_DIR}/$(/usr/bin/uuidgen)"
+DOWNLOADED_PKG="${TMP_DIR}/$(/usr/bin/uuidgen)"
+EXTRACTED_PKG_DIR="${TMP_DIR}/$(/usr/bin/uuidgen)"
+SQL_QUERY_FILE="${TMP_DIR}/$(/usr/bin/uuidgen)"
+DRIVERS_PKG="${TMP_DIR}/$(/usr/bin/uuidgen)"
+DRIVERS_ROOT="${TMP_DIR}/$(/usr/bin/uuidgen)"
 DRIVERS_DIR_HINT="NVWebDrivers.pkg"
 STARTUP_KEXT="/Library/Extensions/NVDAStartupWeb.kext"
 EGPU_KEXT="/Library/Extensions/NVDAEGPUSupport.kext"
@@ -54,6 +58,8 @@ BREW_PREFIX=$(brew --prefix 2> /dev/null)
 HOST_PREFIX="/usr/local"
 ERR_PLIST_READ="Couldn't read a required value from a property list"
 ERR_PLIST_WRITE="Couldn't set a required value in a property list"
+SET_NVRAM="/usr/sbin/nvram nvda_drv=1%00"
+UNSET_NVRAM="/usr/sbin/nvram -d nvda_drv"
 CHANGES_MADE=false
 RESTART_REQUIRED=true
 REINSTALL_MESSAGE=false
@@ -63,7 +69,7 @@ declare -i COMMAND_COUNT=0
 if [[ $BASENAME =~ "system-update" ]]; then
 	[[ $1 != "-u" ]] && exit 1
 	[[ -z $2 ]] && exit 1
-	set -- "-Sycu" "$2"
+	set -- "-Su" "$2"
 fi
 
 function usage() {
@@ -82,8 +88,8 @@ function version() {
 	printf 'See the GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n'
 }
 
-declare OPT_REINSTALL=false OPT_SYSTEM=false OPT_YES=false OPT_INSTALLER=false OPT_ALL=false
-while getopts ":hvlpu:rm:cfSy!a" OPTION; do
+declare OPT_REINSTALL=false OPT_SYSTEM=false OPT_ALL=false
+while getopts ":hvlu:rm:fSa" OPTION; do
 	case $OPTION in
 	"h")
 		usage
@@ -93,9 +99,6 @@ while getopts ":hvlpu:rm:cfSy!a" OPTION; do
 		exit 0;;
 	"l")
 		COMMAND="LIST_MODE"
-		COMMAND_COUNT+=1;;
-	"p")
-		COMMAND="GET_PLIST_AND_EXIT"
 		COMMAND_COUNT+=1;;
 	"u")
 		COMMAND="USER_PROVIDED_URL"
@@ -108,16 +111,10 @@ while getopts ":hvlpu:rm:cfSy!a" OPTION; do
 		MOD_REQUIRED_OS="$OPTARG"
 		COMMAND="SET_REQUIRED_OS_AND_EXIT"
 		COMMAND_COUNT+=1;;
-	"c")
-		printf 'Info: The no caches option -c has been removed\n';;
 	"f")
 		OPT_REINSTALL=true;;
 	"S")	
 		OPT_SYSTEM=true;;
-	"!")
-		OPT_INSTALLER=true;;
-	"y")
-		OPT_YES=true;;
 	"a")
 		OPT_ALL=true;;
 	"?")
@@ -142,22 +139,22 @@ while getopts ":hvlpu:rm:cfSy!a" OPTION; do
 	fi
 done
 
-function silent() {
-	# silent $@: args... 
+function s() {
+	# s $@: args... 
 	"$@" > /dev/null 2>&1
 	return $?
 }
 
-function error() {
-	# error $1: message, $2: exit_code
-	silent rm -rf "$TMP_DIR"
+function e() {
+	# e $1: message, $2: exit_code
+	s rm -rf "$TMP_DIR"
 	if [[ -z $2 ]]; then
 		printf '%bError%b: %s\n' "$U" "$R" "$1"
 	else
 		printf '%bError%b: %s (%s)\n' "$U" "$R" "$1" "$2"
 	fi
 	if $CHANGES_MADE; then
-		unset_nvram
+		$UNSET_NVRAM
 	else
 		printf 'No changes were made\n'
 	fi
@@ -165,41 +162,9 @@ function error() {
 }
 
 function exit_ok() {
-	silent rm -rf "$TMP_DIR"
+	s rm -rf "$TMP_DIR"
 	exit 0
 }
-
-# COMMAND GET_PLIST_AND_EXIT
-
-if [[ $COMMAND == "GET_PLIST_AND_EXIT" ]]; then
-	declare -i i=0
-	DOWNLOAD_PATH=~/Downloads/NvidiaUpdates
-	while (( i < 49 )); do
-		if (( i == 0 )); then
-			DESTINATION="${DOWNLOAD_PATH}.plist"
-		else
-			DESTINATION="${DOWNLOAD_PATH}-${i}.plist"
-		fi
-		if [[ ! -f "$DESTINATION" ]]; then
-			break
-		fi
-		(( i += 1 ))
-	done
-	printf '%bDownloading...%b\n' "$B" "$R"
-	/usr/bin/curl -s --connect-timeout 15 -m 45 -o "$DESTINATION" "https://gfestage.nvidia.com/mac-update" \
-		|| error "Couldn't get updates data from Nvidia" $?
-	printf '%s\n' "$DESTINATION"
-	/usr/bin/open -R "$DESTINATION"
-	silent rm -rf "$TMP_DIR"
-	exit 0
-fi
-
-# Check root
-
-if [[ $(/usr/bin/id -u) != "0" ]]; then
-	printf 'Run it as root: sudo %s %s' "$BASENAME" "$RAW_ARGS"
-	exit 0
-fi
 
 function exit_after_install() {
 	printf 'Complete.'
@@ -208,7 +173,7 @@ function exit_after_install() {
 	else
 		printf '\n'
 	fi
-	silent rm -rf "$TMP_DIR"
+	s rm -rf "$TMP_DIR"
 	exit $EXIT_ERROR
 }
 
@@ -234,12 +199,12 @@ function uninstall_drivers() {
 		/System/Library/Extensions/GeForce*Web* \
 		/System/Library/Extensions/NVDA*Web*"
 	# Remove drivers
-	silent mv "$EGPU_DEFAULT" "$EGPU_RENAMED"
+	s mv "$EGPU_DEFAULT" "$EGPU_RENAMED"
 	# shellcheck disable=SC2086
-	silent rm -rf $REMOVE_LIST
+	s rm -rf $REMOVE_LIST
 	# Remove driver flat package receipt
-	silent pkgutil --forget com.nvidia.web-driver
-	silent mv "$EGPU_RENAMED" "$EGPU_DEFAULT"
+	s pkgutil --forget com.nvidia.web-driver
+	s mv "$EGPU_RENAMED" "$EGPU_DEFAULT"
 	etc "/etc/webdriver.sh/uninstall.conf"
 }
 
@@ -260,11 +225,11 @@ function update_caches() {
 	local LE="caches updated for /Library/Extensions"
 	local RESULT=
 	RESULT=$(/usr/sbin/kextcache -v 2 -i / 2>&1)
-	silent /usr/bin/grep "$PLK" <<< "$RESULT" \
+	s /usr/bin/grep "$PLK" <<< "$RESULT" \
 		|| caches_error "There was a problem creating the prelinked kernel"
-	silent /usr/bin/grep "$SLE" <<< "$RESULT" \
+	s /usr/bin/grep "$SLE" <<< "$RESULT" \
 		|| caches_error "There was a problem updating directory caches for /S/L/E"
-	silent /usr/bin/grep "$LE" <<< "$RESULT" \
+	s /usr/bin/grep "$LE" <<< "$RESULT" \
 		|| caches_error "There was a problem updating directory caches for /L/E"
 	if (( EXIT_ERROR != 0 )); then
 		printf '\nTo try again use:\n%bsudo kextcache -i /%b\n\n' "$B" "$R"
@@ -274,7 +239,7 @@ function update_caches() {
 
 function ask() {
 	# ask $1: message
-	local ASK=
+	local ASK
 	printf '%b%s%b' "$B" "$1" "$R"
 	read -n 1 -srp " [y/N]" ASK
 	printf '\n'
@@ -287,7 +252,7 @@ function ask() {
 
 function plistb() {
 	# plistb $1: command, $2: file
-	local RESULT=
+	local RESULT
 	if ! [[ -f "$2" ]]; then
 		return 1;
 	else 
@@ -300,50 +265,42 @@ function plistb() {
 
 function sha512() {
 	# checksum $1: file
-	local RESULT=
+	local RESULT
 	RESULT=$(/usr/bin/shasum -a 512 "$1" | /usr/bin/awk '{print $1}')
 	[[ $RESULT ]] && printf '%s' "$RESULT"
 }
 
-function set_nvram() {
-	/usr/sbin/nvram nvda_drv=1%00
-}
-
-function unset_nvram() {
-	/usr/sbin/nvram -d nvda_drv
-}
-
 function set_required_os() {
 	# set_required_os $1: target_version
-	local RESULT=
+	local RESULT
 	local BUILD="$1"
 	local MOD_KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
-	RESULT=$(plistb "Print $MOD_KEY" "${STARTUP_KEXT}/Contents/Info.plist") || error "$ERR_PLIST_READ"
+	RESULT=$(plistb "Print $MOD_KEY" "${STARTUP_KEXT}/Contents/Info.plist") || e "$ERR_PLIST_READ"
 	if [[ $RESULT == "$BUILD" ]]; then
 		printf 'NVDARequiredOS already set to %s\n' "$BUILD"
 	else 
 		CHANGES_MADE=true
 		printf '%bSetting NVDARequiredOS to %s...%b\n' "$B" "$BUILD" "$R"
-		plistb "Set $MOD_KEY $BUILD" "${STARTUP_KEXT}/Contents/Info.plist" || error "$ERR_PLIST_WRITE"
+		plistb "Set $MOD_KEY $BUILD" "${STARTUP_KEXT}/Contents/Info.plist" || e "$ERR_PLIST_WRITE"
 	fi
 	if [[ -f "${EGPU_KEXT}/Contents/Info.plist" ]]; then
-		RESULT=$(plistb "Print $MOD_KEY" "${EGPU_KEXT}/Contents/Info.plist") || error "$ERR_PLIST_READ"
+		RESULT=$(plistb "Print $MOD_KEY" "${EGPU_KEXT}/Contents/Info.plist") || e "$ERR_PLIST_READ"
 		if [[ $RESULT == "$BUILD" ]]; then
 			printf 'Found NVDAEGPUSupport.kext, already set to %s\n' "$BUILD"
 		else
 			CHANGES_MADE=true
 			printf '%bFound NVDAEGPUSupport.kext, setting NVDARequiredOS to %s...%b\n' "$B" "$BUILD" "$R"
-			plistb "Set $MOD_KEY $BUILD" "${EGPU_KEXT}/Contents/Info.plist"  || error "$ERR_PLIST_WRITE"
+			plistb "Set $MOD_KEY $BUILD" "${EGPU_KEXT}/Contents/Info.plist"  || e "$ERR_PLIST_WRITE"
 		fi
 	fi
 }
 
 function check_required_os() {
-	$OPT_YES && return 0
-	local RESULT=
+	$OPT_SYSTEM && return 0
+	local RESULT
 	local MOD_KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
 	if [[ -f ${STARTUP_KEXT}/Contents/Info.plist ]]; then
-		RESULT=$(plistb "Print $MOD_KEY" "${STARTUP_KEXT}/Contents/Info.plist") || error "$ERR_PLIST_READ"
+		RESULT=$(plistb "Print $MOD_KEY" "${STARTUP_KEXT}/Contents/Info.plist") || e "$ERR_PLIST_READ"
 		if [[ $RESULT != "$BUILD" ]]; then
 			ask "Modify installed driver for the current macOS version?" || return 0
 			set_required_os "$BUILD"
@@ -352,6 +309,31 @@ function check_required_os() {
 			return 1
 		fi
 	fi
+}
+
+function installed_version() {
+	local PLIST="/Library/Extensions/GeForceWeb.kext/Contents/Info.plist"
+	if [[ -f $PLIST ]]; then
+		GET_INFO_STRING=$(plistb "Print :CFBundleGetInfoString" "$PLIST")
+		GET_INFO_STRING="${GET_INFO_STRING##* }"
+		printf "%s" "$GET_INFO_STRING"
+	fi
+}
+
+function sql_add_kext() {
+	# sql_add_kext $1:bundle_id
+	printf 'insert or replace into kext_policy '
+	printf '(team_id, bundle_id, allowed, developer_name, flags) '
+	printf 'values (\"%s\",\"%s\",1,\"%s\",1);\n' "6KR3T733EC" "$1" "NVIDIA Corporation"
+} >> "$SQL_QUERY_FILE"
+
+function match_build() {
+	# match_build $1:local $2:remote
+	local LOCAL=$(( $1 ))
+	local REMOTE=$(( $2 ))
+	[[ $LOCAL == $(( LOCAL + 1 )) ]] && return 0
+	[[ $REMOTE -ge 17 && $REMOTE == $(( LOCAL - 1 )) ]] && return 0
+	return 1
 }
 
 # COMMAND SET_REQUIRED_OS_AND_EXIT
@@ -370,11 +352,11 @@ if [[ $COMMAND == "SET_REQUIRED_OS_AND_EXIT" ]]; then
 		printf 'No changes were made\n'
 	fi
 	if [[ $EXIT_ERROR == 0 ]]; then
-		set_nvram
+		$SET_NVRAM
 	else
-		unset_nvram
+		$UNSET_NVRAM
 	fi
-	silent rm -rf "$TMP_DIR"
+	s rm -rf "$TMP_DIR"
 	exit $EXIT_ERROR
 fi
 
@@ -386,36 +368,11 @@ if [[ $COMMAND == "UNINSTALL_DRIVERS_AND_EXIT" ]]; then
 	CHANGES_MADE=true
 	uninstall_drivers
 	update_caches
-	unset_nvram
+	$UNSET_NVRAM
 	exit_after_install
 fi
 
-function installed_version() {
-	local PLIST="/Library/Extensions/GeForceWeb.kext/Contents/Info.plist"
-	if [[ -f $PLIST ]]; then
-		GET_INFO_STRING=$(plistb "Print :CFBundleGetInfoString" "$PLIST")
-		GET_INFO_STRING="${GET_INFO_STRING##* }"
-		printf "%s" "$GET_INFO_STRING"
-	fi
-}
-
-function sql_add_kext() {
-	# sql_add_kext $1:bundle_id
-	printf 'insert or replace into kext_policy '
-	printf '(team_id, bundle_id, allowed, developer_name, flags) '
-	printf 'values (\"%s\",\"%s\",1,\"%s\",1);\n' "6KR3T733EC" "$1" "NVIDIA Corporation"
-} >> "$SQL_QUERY_FILE"
-
 # UPDATER/INSTALLER
-
-function match_build() {
-	# match_build $1:local $2:remote
-	local LOCAL=$(( $1 ))
-	local REMOTE=$(( $2 ))
-	[[ $LOCAL == $(( LOCAL + 1 )) ]] && return 0
-	[[ $REMOTE -ge 17 && $REMOTE == $(( LOCAL - 1 )) ]] && return 0
-	return 1
-}
 
 if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 	if [[ $COMMAND == "LIST_MODE" ]]; then
@@ -427,19 +384,19 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 	INSTALLED_VERSION=$(installed_version)
 	# Get updates file
 	printf '%bChecking for updates...%b\n' "$B" "$R"
-	/usr/bin/curl -s --connect-timeout 15 -m 45 -o "$DOWNLOADED_UPDATE_PLIST" "https://gfestage.nvidia.com/mac-update" \
-		|| error "Couldn't get updates data from Nvidia" $?
-	# Check for an update
-	c=$(/usr/bin/grep -c "<dict>" "$DOWNLOADED_UPDATE_PLIST")
+	/usr/bin/curl -s --connect-timeout 15 -m 45 -o "$UPDATES_PLIST" "https://gfestage.nvidia.com/mac-update" \
+		|| e "Couldn't get updates data from Nvidia" $?
+	# shellcheck disable=SC2155
+	declare -i c=$(/usr/bin/grep -c "<dict>" "$UPDATES_PLIST")
 	(( c -= 1, i = 0 ))
 	while (( i < c )); do
 		unset -v REMOTE_BUILD REMOTE_MAJOR REMOTE_URL REMOTE_VERSION REMOTE_CHECKSUM
-		! REMOTE_BUILD=$(plistb "Print :updates:${i}:OS" "$DOWNLOADED_UPDATE_PLIST") && break			
+		! REMOTE_BUILD=$(plistb "Print :updates:${i}:OS" "$UPDATES_PLIST") && break			
 		if [[ $REMOTE_BUILD == "$BUILD" || $COMMAND == "LIST_MODE" ]]; then
 			REMOTE_MAJOR=${REMOTE_BUILD:0:2}
-			REMOTE_URL=$(plistb "Print :updates:${i}:downloadURL" "$DOWNLOADED_UPDATE_PLIST")
-			REMOTE_VERSION=$(plistb "Print :updates:${i}:version" "$DOWNLOADED_UPDATE_PLIST")
-			REMOTE_CHECKSUM=$(plistb "Print :updates:${i}:checksum" "$DOWNLOADED_UPDATE_PLIST")
+			REMOTE_URL=$(plistb "Print :updates:${i}:downloadURL" "$UPDATES_PLIST")
+			REMOTE_VERSION=$(plistb "Print :updates:${i}:version" "$UPDATES_PLIST")
+			REMOTE_CHECKSUM=$(plistb "Print :updates:${i}:checksum" "$UPDATES_PLIST")
 			if [[ $COMMAND == "LIST_MODE" ]]; then
 				if [[ $LM_MAJOR == "$REMOTE_MAJOR" ]] || ( $OPT_ALL && match_build "$LM_MAJOR" "$REMOTE_MAJOR" ); then
 					LM_URLS+=("$REMOTE_URL")
@@ -499,7 +456,7 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 		check_required_os
 		if $CHANGES_MADE; then
 			update_caches
-			set_nvram
+			$SET_NVRAM
 		fi
 		exit_ok
 	elif [[ $REMOTE_VERSION == "$INSTALLED_VERSION" ]]; then
@@ -510,7 +467,7 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 			check_required_os
 			if $CHANGES_MADE; then
 				update_caches
-				set_nvram
+				$SET_NVRAM
 			fi
 			exit_ok
 		fi
@@ -532,7 +489,7 @@ fi
 
 # Prompt install y/n
 
-if ! $OPT_YES; then
+if ! $OPT_SYSTEM; then
 	if $REINSTALL_MESSAGE; then
 		ask "Re-install?" || exit_ok
 	else
@@ -543,24 +500,20 @@ fi
 # Check URL
 
 REMOTE_HOST=$(printf '%s' "$REMOTE_URL" | /usr/bin/awk -F/ '{print $3}')
-if ! silent /usr/bin/host "$REMOTE_HOST"; then
-	[[ $COMMAND == "USER_PROVIDED_URL" ]] && error "Unable to resolve host, check your URL"
+if ! s /usr/bin/host "$REMOTE_HOST"; then
+	[[ $COMMAND == "USER_PROVIDED_URL" ]] && e "Unable to resolve host, check your URL"
 	REMOTE_URL="https://images.nvidia.com/mac/pkg/"
 	REMOTE_URL+="${REMOTE_VERSION%%.*}"
 	REMOTE_URL+="/WebDriver-${REMOTE_VERSION}.pkg"
 fi
-HEADERS=$(/usr/bin/curl -I "$REMOTE_URL" 2>&1) \
-	|| error "Failed to download HTTP headers"
-silent /usr/bin/grep "octet-stream" <<< "$HEADERS" \
-	|| warning "Unexpected HTTP content type"
-if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
-	printf 'URL: %s\n' "$REMOTE_URL"; fi
+HEADERS=$(/usr/bin/curl -I "$REMOTE_URL" 2>&1) || e "Failed to download HTTP headers"
+s /usr/bin/grep "octet-stream" <<< "$HEADERS" || warning "Unexpected HTTP content type"
+[[ $COMMAND != "USER_PROVIDED_URL" ]] && printf 'URL: %s\n' "$REMOTE_URL"
 
 # Download
 
 printf '%bDownloading package...%b\n' "$B" "$R"
-/usr/bin/curl --connect-timeout 15 -# -o "$DOWNLOADED_PKG" "$REMOTE_URL" \
-	|| error "Failed to download package" $?
+/usr/bin/curl --connect-timeout 15 -# -o "$DOWNLOADED_PKG" "$REMOTE_URL" || e "Failed to download package" $?
 
 # Checksum
 
@@ -569,7 +522,7 @@ if [[ $REMOTE_CHECKSUM ]]; then
 	if [[ $LOCAL_CHECKSUM == "$REMOTE_CHECKSUM" ]]; then
 		printf 'SHA512: Verified\n'
 	else
-		error "SHA512 verification failed"
+		e "SHA512 verification failed"
 	fi
 else
 	printf 'SHA512: %s\n' "$LOCAL_CHECKSUM"
@@ -578,37 +531,34 @@ fi
 # Unflatten
 
 printf '%bExtracting...%b\n' "$B" "$R"
-/usr/sbin/pkgutil --expand "$DOWNLOADED_PKG" "$EXTRACTED_PKG_DIR" \
-	|| error "Failed to extract package" $?
+/usr/sbin/pkgutil --expand "$DOWNLOADED_PKG" "$EXTRACTED_PKG_DIR" || e "Failed to extract package" $?
 DIRS=("$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT")
 # shellcheck disable=SC2076,SC2049
 if [[ ${#DIRS[@]} == 1 ]] && [[ ! ${DIRS[0]} =~ "*" ]]; then
         DRIVERS_COMPONENT_DIR=${DIRS[0]}
 else
-        error "Failed to find pkgutil output directory"
+        e "Failed to find pkgutil output directory"
 fi
 
 # Extract drivers
 
 mkdir "$DRIVERS_ROOT"
 /usr/bin/gunzip -dc < "${DRIVERS_COMPONENT_DIR}/Payload" > "${DRIVERS_ROOT}/tmp.cpio" \
-	|| error "Failed to extract package" $?
-cd "$DRIVERS_ROOT" \
-	|| error "Failed to find drivers root directory" $?
-/usr/bin/cpio -i < "${DRIVERS_ROOT}/tmp.cpio" \
-	|| error "Failed to extract package" $?
-silent rm -f "${DRIVERS_ROOT}/tmp.cpio"
+	|| e "Failed to extract package" $?
+cd "$DRIVERS_ROOT" || e "Failed to find drivers root directory" $?
+/usr/bin/cpio -i < "${DRIVERS_ROOT}/tmp.cpio" || e "Failed to extract package" $?
+s rm -f "${DRIVERS_ROOT}/tmp.cpio"
 if [[ ! -d ${DRIVERS_ROOT}/Library/Extensions || ! -d ${DRIVERS_ROOT}/System/Library/Extensions ]]; then
-	error "Unexpected directory structure after extraction"; fi
+	e "Unexpected directory structure after extraction"; fi
 
 # Make SQL and allow kexts
 
 if $FS_ALLOWED; then
 	printf '%bApproving kexts...%b\n' "$B" "$R"
-	cd "$DRIVERS_ROOT" || error "Failed to find drivers root directory" $?
+	cd "$DRIVERS_ROOT" || e "Failed to find drivers root directory" $?
 	KEXT_INFO_PLISTS=(./Library/Extensions/*.kext/Contents/Info.plist)
 	for PLIST in "${KEXT_INFO_PLISTS[@]}"; do
-		BUNDLE_ID=$(plistb "Print :CFBundleIdentifier" "$PLIST") || error "$ERR_PLIST_READ"
+		BUNDLE_ID=$(plistb "Print :CFBundleIdentifier" "$PLIST") || e "$ERR_PLIST_READ"
 		[[ $BUNDLE_ID ]] && sql_add_kext "$BUNDLE_ID"
 	done
 	sql_add_kext "com.nvidia.CUDA"
@@ -622,9 +572,9 @@ printf '%bInstalling...%b\n' "$B" "$R"
 CHANGES_MADE=true
 uninstall_drivers
 NEEDS_KEXTCACHE=false
-if ! $FS_ALLOWED || $OPT_INSTALLER; then
-	silent /usr/bin/pkgbuild --identifier com.nvidia.web-driver --root "$DRIVERS_ROOT" "$PACKAGE"
-	silent /usr/sbin/installer -allowUntrusted -pkg "$PACKAGE" -target / || error "installer error" $?
+if ! $FS_ALLOWED; then
+	s /usr/bin/pkgbuild --identifier com.nvidia.web-driver --root "$DRIVERS_ROOT" "$DRIVERS_PKG"
+	s /usr/sbin/installer -allowUntrusted -pkg "$DRIVERS_PKG" -target / || e "installer error" $?
 else
 	cp -r "${DRIVERS_ROOT}"/Library/Extensions/* /Library/Extensions
 	cp -r "${DRIVERS_ROOT}"/System/Library/Extensions/* /System/Library/Extensions
@@ -634,37 +584,36 @@ etc "/etc/webdriver.sh/post-install.conf" "$DRIVERS_ROOT"
 
 # Check extensions are loadable, update caches, set nvram variable
 
-# If invalid kexts are allowed the security prompt won't show up -
-# in this case the kexts will likely load anyway until SIP re-enabled later.
-# If file system access is allowed we should have already approved the
-# extensions directly so don't test loadability if either of these are true
-if ! $FS_ALLOWED && ! $KEXT_ALLOWED && ! silent /usr/bin/kextutil -tn "$STARTUP_KEXT"; then
-	# macOS automatically prompts to open the relevant setting if needed
-	# the problem is it then prompts to restart without rebuilding kext
-	# caches - this may be done as part of the package installation, but
-	# needs to be done again AFTER the kexts are allowed. If the user
-	# restarts too soon there's a good chance the driver won't be linked.
-	silent /usr/bin/osascript -e "beep"
-	warning 'Do not restart until this process has completed!'
-	printf 'Allow %s in security preferences to continue...\n' "NVIDIA Corporation"
+# If invalid kexts are allowed the security prompt won't show up - in that
+# case the extensions will likely load (for so long as SIP remains disabled)
+# Also if file system access is allowed we should have already 'approved' the
+# extensions directly, so don't test loadability if either of these are true
+if ! $FS_ALLOWED && ! $KEXT_ALLOWED && ! s /usr/bin/kextutil -tn "$STARTUP_KEXT"; then
+	# macOS prompts to open the relevant settings... and then prompts to restart
+	# without rebuilding caches, which needs to be done (again) once the extensions
+	# have been approved. Restart too soon and the extensions won't be included.
+	s /usr/bin/osascript -e "beep"
+	warning "Don't restart until this process has completed!"
+	printf 'Allow NVIDIA Corporation in security preferences to continue...\n'
 	NEEDS_KEXTCACHE=true
+	# This Apple script is from the Nvidia installer...
 	REVEAL='tell app "System Preferences" to reveal anchor "General"'
 	REVEAL+=' of pane id "com.apple.preference.security"'
 	ACTIVATE='tell app "System Preferences" to activate'
-	while ! silent /usr/bin/kextutil -tn "$STARTUP_KEXT"; do
-		silent /usr/bin/osascript -e "$REVEAL" -e "$ACTIVATE"
+	while ! s /usr/bin/kextutil -tn "$STARTUP_KEXT"; do
+		s /usr/bin/osascript -e "$REVEAL" -e "$ACTIVATE"
 		sleep 5
 	done
 fi
 check_required_os || NEEDS_KEXTCACHE=true
 $NEEDS_KEXTCACHE && update_caches
-set_nvram
+$SET_NVRAM
 
 # Exit
 
 if $OPT_SYSTEM; then
-	silent rm -rf "$TMP_DIR"
+	s rm -rf "$TMP_DIR"
 	printf '%bSystem update...%b\n' "$B" "$R"
-	silent /usr/sbin/softwareupdate -ir
+	s /usr/sbin/softwareupdate -ir
 fi
 exit_after_install
