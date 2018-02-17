@@ -680,7 +680,16 @@ post_install "$DRIVERS_ROOT"
 
 # Check extensions are loadable, update caches, set nvram variable
 
-if ! silent /usr/bin/kextutil -tn "$STARTUP_KEXT"; then
+# If invalid kexts are allowed the security prompt won't show up -
+# in this case the kexts will likely load anyway until SIP re-enabled later.
+# If file system access is allowed we should have already approved the
+# extensions directly so don't test loadability if either of these are true
+if ! $FS_ALLOWED && ! $KEXT_ALLOWED && ! silent /usr/bin/kextutil -tn "$STARTUP_KEXT"; then
+	# macOS automatically prompts to open the relevant setting if needed
+	# the problem is it then prompts to restart without rebuilding kext
+	# caches - this may be done as part of the package installation, but
+	# needs to be done again AFTER the kexts are allowed. If the user
+	# restarts too soon there's a good chance the driver won't be linked.
 	silent /usr/bin/osascript -e "beep"
 	warning 'Do not restart until this process has completed!'
 	printf 'Allow %s in security preferences to continue...\n' "$SQL_DEVELOPER_NAME"
