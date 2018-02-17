@@ -23,12 +23,14 @@ R='\e[0m'	# no formatting
 B='\e[1m'	# bold
 U='\e[4m'	# underline
 
-if ! /usr/bin/sw_vers -productVersion | /usr/bin/grep "10.13" > /dev/null 2>&1; then
+PRODUCT_VERSION=$(/usr/bin/sw_vers -productVersion)
+if ! /usr/bin/grep -e "10.13" <<< "$PRODUCT_VERSION" > /dev/null 2>&1; then
 	printf 'Unsupported macOS version'
 	exit 1
 fi
 
-if ! MAC_OS_BUILD=$(/usr/bin/sw_vers -buildVersion); then
+
+if ! BUILD=$(/usr/bin/sw_vers -buildVersion); then
 	printf 'sw_vers error\n'
 	exit $?
 fi
@@ -101,7 +103,7 @@ function version() {
 	printf 'See the GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n'
 }
 
-while getopts ":hvpu:rm:cfSy!" OPTION; do
+while getopts ":hvlpu:rm:cfSy!" OPTION; do
 	case $OPTION in
 	"h")
 		usage
@@ -109,6 +111,9 @@ while getopts ":hvpu:rm:cfSy!" OPTION; do
 	"v")
 		version
 		exit 0;;
+	"l")
+		COMMAND="LIST_MODE"
+		(( COMMAND_COUNT += 1 ));;
 	"p")
 		COMMAND="GET_PLIST_AND_EXIT"
 		(( COMMAND_COUNT += 1 ));;
@@ -141,7 +146,7 @@ while getopts ":hvpu:rm:cfSy!" OPTION; do
 		exit 1;;
 	":")
 		if [[ $OPTARG == "m" ]]; then
-			MOD_REQUIRED_OS="$MAC_OS_BUILD"
+			MOD_REQUIRED_OS="$BUILD"
 			COMMAND="SET_REQUIRED_OS_AND_EXIT"
 			(( COMMAND_COUNT += 1 ))
 		else
@@ -378,9 +383,9 @@ function check_required_os() {
 	local RESULT=
 	if [[ -f $MOD_INFO_PLIST_PATH ]]; then
 		RESULT=$(plistb "Print $MOD_KEY" "$MOD_INFO_PLIST_PATH") || plist_read_error
-		if [[ $RESULT != "$MAC_OS_BUILD" ]]; then
+		if [[ $RESULT != "$BUILD" ]]; then
 			ask "Modify installed driver for the current macOS version?" || return 0
-			set_required_os "$MAC_OS_BUILD"
+			set_required_os "$BUILD"
 			RESTART_REQUIRED=true
 			$KEXT_ALLOWED || warning "Disable SIP, run 'kextcache -i /' to allow modified drivers to load"
 			return 1
@@ -442,6 +447,14 @@ function sql_add_kext() {
 # UPDATER/INSTALLER
 
 if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
+	
+	if [[ $COMMAND == "LIST_MODE" ]]; then
+		LM_MAJOR=${BUILD:0:2}
+		declare -a LM_URLS
+		declare -a LM_VERSIONS
+		declare -a LM_CHECKSUMS
+		declare -a LM_BUILDS
+	fi
 
 	# No URL specified, get installed web driver verison
 	VERSION=$(installed_version)
@@ -455,26 +468,65 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 	c=$(/usr/bin/grep -c "<dict>" "$DOWNLOADED_UPDATE_PLIST")
 	(( c -= 1, i = 0 ))
 	while (( i < c )); do
-		if ! REMOTE_MAC_OS_BUILD=$(plistb "Print :updates:${i}:OS" "$DOWNLOADED_UPDATE_PLIST"); then
-			unset REMOTE_MAC_OS_BUILD
+		unset -v REMOTE_BUILD REMOTE_MAJOR REMOTE_URL REMOTE_VERSION REMOTE_CHECKSUM
+		if ! REMOTE_BUILD=$(plistb "Print :updates:${i}:OS" "$DOWNLOADED_UPDATE_PLIST"); then
 			break
-		fi
-		if [[ $REMOTE_MAC_OS_BUILD == "$MAC_OS_BUILD" ]]; then
-			if ! REMOTE_URL=$(plistb "Print :updates:${i}:downloadURL" "$DOWNLOADED_UPDATE_PLIST"); then
-				unset REMOTE_URL; fi
-			if ! REMOTE_VERSION=$(plistb "Print :updates:${i}:version" "$DOWNLOADED_UPDATE_PLIST"); then
-				unset REMOTE_VERSION; fi
-			if ! REMOTE_CHECKSUM=$(plistb "Print :updates:${i}:checksum" "$DOWNLOADED_UPDATE_PLIST"); then
-				unset REMOTE_CHECKSUM; fi
+		fi			
+		if [[ $REMOTE_BUILD == "$BUILD" || $COMMAND == "LIST_MODE" ]]; then
+			REMOTE_MAJOR=${REMOTE_BUILD:0:2}
+			REMOTE_URL=$(plistb "Print :updates:${i}:downloadURL" "$DOWNLOADED_UPDATE_PLIST")
+			REMOTE_VERSION=$(plistb "Print :updates:${i}:version" "$DOWNLOADED_UPDATE_PLIST")
+			REMOTE_CHECKSUM=$(plistb "Print :updates:${i}:checksum" "$DOWNLOADED_UPDATE_PLIST")
+			if [[ $COMMAND == "LIST_MODE" ]]; then
+				if [[ $LM_MAJOR == $REMOTE_MAJOR ]]; then
+					LM_URLS+=("$REMOTE_URL")
+					LM_VERSIONS+=("$REMOTE_VERSION")
+					LM_CHECKSUMS+=("$REMOTE_CHECKSUM")
+					LM_BUILDS+=("$REMOTE_BUILD")
+				fi
+				(( i += 1 ))
+				continue
+			fi	
 			break
 		fi
 		(( i += 1 ))
 	done;
 	
+	if [[ $COMMAND == "LIST_MODE" ]]; then
+		printf 'Running on: macOS %s (%s)\n\n' "$PRODUCT_VERSION" "$BUILD"
+		while true; do
+			count=${#LM_VERSIONS[@]}
+			(( i = 0 ))
+			while (( i < count )); do
+				(( n = i + 1 ))
+				INDEX=$(printf '%4s  ' $n)
+				ROW="$INDEX"
+				ROW+="${LM_VERSIONS[$i]}  "
+				ROW+="${LM_BUILDS[$i]}"
+				printf '%s\n' "$ROW"
+				(( i += 1 ))
+			done;
+			printf '\n'
+			printf 'What now? [1-%s] : ' "$count"
+			read int
+			[[ -z $int ]] && exit_ok
+			if [[ $int =~ ^[0-9] ]] && (( int >= 1 )) && (( int <= count )); then
+				(( int -= 1 ))
+				REMOTE_URL=${LM_URLS[$int]}
+				REMOTE_VERSION=${LM_VERSIONS[$int]}
+				REMOTE_BUILD=${LM_BUILDS[$int]}
+				REMOTE_CHECKSUM=${LM_CHECKSUMS[$int]}
+				break
+			fi
+			printf 'Invalid input: %s\n\n' "$int"
+			tput bel
+		done
+	fi
+	
 	# Determine next action
 	if [[ -z $REMOTE_URL || -z $REMOTE_VERSION ]]; then
 		# No driver available, or error during check, exit
-		printf 'No driver available for %s\n' "$MAC_OS_BUILD"
+		printf 'No driver available for %s\n' "$BUILD"
 		check_required_os
 		if $CHANGES_MADE; then
 			update_caches
@@ -483,7 +535,7 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 		exit_ok
 	elif [[ $REMOTE_VERSION == "$VERSION" ]]; then
 		# Latest already installed, exit
-		printf '%s for %s already installed\n' "$REMOTE_VERSION" "$MAC_OS_BUILD"
+		printf '%s for %s already installed\n' "$REMOTE_VERSION" "$BUILD"
 		if ! $REINSTALL_OPTION; then
 			# printf 'To re-install use -f\n' "$BASENAME"
 			check_required_os
@@ -495,8 +547,13 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 		fi
 		REINSTALL_MESSAGE=true
 	else
-		# Found an update, proceed to installation
-		printf 'Web driver %s available...\n' "$REMOTE_VERSION"
+		if [[ $COMMAND != "LIST_MODE" ]]; then
+			# Found an update, proceed to installation
+			printf 'Web driver %s available...\n' "$REMOTE_VERSION"
+		else
+			# Chosen from a list
+			printf 'Selected: %s for %s\n' "$REMOTE_VERSION" "$REMOTE_BUILD"
+		fi
 	fi
 
 else
