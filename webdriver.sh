@@ -445,6 +445,15 @@ function sql_add_kext() {
 
 # UPDATER/INSTALLER
 
+function match_build() {
+	# match_build $1:local $2:remote
+	local LOCAL=$(( $1 ))
+	local REMOTE=$(( $2 ))
+	[[ $LOCAL == $(( LOCAL + 1 )) ]] && return 0
+	[[ $REMOTE -ge 17 && $REMOTE == $(( LOCAL - 1 )) ]] && return 0
+	return 1
+}
+
 if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 	
 	if [[ $COMMAND == "LIST_MODE" ]]; then
@@ -466,22 +475,21 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 	(( c -= 1, i = 0 ))
 	while (( i < c )); do
 		unset -v REMOTE_BUILD REMOTE_MAJOR REMOTE_URL REMOTE_VERSION REMOTE_CHECKSUM
-		if ! REMOTE_BUILD=$(plistb "Print :updates:${i}:OS" "$DOWNLOADED_UPDATE_PLIST"); then
-			break
-		fi			
+		! REMOTE_BUILD=$(plistb "Print :updates:${i}:OS" "$DOWNLOADED_UPDATE_PLIST") && break			
 		if [[ $REMOTE_BUILD == "$BUILD" || $COMMAND == "LIST_MODE" ]]; then
 			REMOTE_MAJOR=${REMOTE_BUILD:0:2}
 			REMOTE_URL=$(plistb "Print :updates:${i}:downloadURL" "$DOWNLOADED_UPDATE_PLIST")
 			REMOTE_VERSION=$(plistb "Print :updates:${i}:version" "$DOWNLOADED_UPDATE_PLIST")
 			REMOTE_CHECKSUM=$(plistb "Print :updates:${i}:checksum" "$DOWNLOADED_UPDATE_PLIST")
 			if [[ $COMMAND == "LIST_MODE" ]]; then
-				if [[ $LM_MAJOR == "$REMOTE_MAJOR" ]] || $ALL_OPTION; then
+				if [[ $LM_MAJOR == "$REMOTE_MAJOR" ]] || ( $ALL_OPTION && match_build "$LM_MAJOR" "$REMOTE_MAJOR" ); then
 					LM_URLS+=("$REMOTE_URL")
 					LM_VERSIONS+=("$REMOTE_VERSION")
 					LM_CHECKSUMS+=("$REMOTE_CHECKSUM")
 					LM_BUILDS+=("$REMOTE_BUILD")
 					[[ ${#REMOTE_VERSION} > $FORMAT_WIDTH ]] && FORMAT_WIDTH=${#REMOTE_VERSION}
 				fi
+				(( ${#LM_VERSIONS[@]} > 47 )) && break
 				(( i += 1 ))
 				continue
 			fi	
@@ -496,7 +504,7 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 			count=${#LM_VERSIONS[@]}
 			FORMAT="/usr/bin/tee"
 			tl=$(tput lines)
-			(( count > tl - 5 )) && FORMAT="/usr/bin/column"
+			[[ $count > $(( tl - 5 )) || $count -gt 15 ]] && FORMAT="/usr/bin/column"
 			(( i = 0 ))
 			VERSION_PAD="%-${FORMAT_WIDTH}s"
 			while (( i < count )); do
@@ -582,8 +590,7 @@ fi
 
 REMOTE_HOST=$(printf '%s' "$REMOTE_URL" | /usr/bin/awk -F/ '{print $3}')
 if ! silent /usr/bin/host "$REMOTE_HOST"; then
-	if [[ $COMMAND == "USER_PROVIDED_URL" ]]; then
-		error "Unable to resolve host, check your URL"; fi
+	[[ $COMMAND == "USER_PROVIDED_URL" ]] && error "Unable to resolve host, check your URL"
 	REMOTE_URL="https://images.nvidia.com/mac/pkg/"
 	REMOTE_URL+="${REMOTE_VERSION%%.*}"
 	REMOTE_URL+="/WebDriver-${REMOTE_VERSION}.pkg"
