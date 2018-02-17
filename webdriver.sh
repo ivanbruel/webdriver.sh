@@ -29,7 +29,6 @@ if ! /usr/bin/grep -e "10.13" <<< "$PRODUCT_VERSION" > /dev/null 2>&1; then
 	exit 1
 fi
 
-
 if ! BUILD=$(/usr/bin/sw_vers -buildVersion); then
 	printf 'sw_vers error\n'
 	exit $?
@@ -75,6 +74,7 @@ REINSTALL_MESSAGE=false
 SYSTEM_OPTION=false
 YES_OPTION=false
 INSTALLER_OPTION=false
+ALL_OPTION=false
 (( CACHES_ERROR = 0 ))
 (( COMMAND_COUNT = 0 ))
 
@@ -101,7 +101,7 @@ function version() {
 	printf 'See the GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n'
 }
 
-while getopts ":hvlpu:rm:cfSy!" OPTION; do
+while getopts ":hvlpu:rm:cfSy!a" OPTION; do
 	case $OPTION in
 	"h")
 		usage
@@ -136,6 +136,8 @@ while getopts ":hvlpu:rm:cfSy!" OPTION; do
 		INSTALLER_OPTION=true;;
 	"y")
 		YES_OPTION=true;;
+	"a")
+		ALL_OPTION=true;;
 	"?")
 		printf 'Invalid option: -%s\n' "$OPTARG"
 		usage
@@ -446,10 +448,8 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 	
 	if [[ $COMMAND == "LIST_MODE" ]]; then
 		LM_MAJOR=${BUILD:0:2}
-		declare -a LM_URLS
-		declare -a LM_VERSIONS
-		declare -a LM_CHECKSUMS
-		declare -a LM_BUILDS
+		declare -a LM_URLS LM_VERSIONS LM_CHECKSUMS LM_BUILDS
+		declare -i FORMAT_WIDTH
 	fi
 
 	# No URL specified, get installed web driver verison
@@ -474,11 +474,12 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 			REMOTE_VERSION=$(plistb "Print :updates:${i}:version" "$DOWNLOADED_UPDATE_PLIST")
 			REMOTE_CHECKSUM=$(plistb "Print :updates:${i}:checksum" "$DOWNLOADED_UPDATE_PLIST")
 			if [[ $COMMAND == "LIST_MODE" ]]; then
-				if [[ $LM_MAJOR == $REMOTE_MAJOR ]]; then
+				if [[ $LM_MAJOR == $REMOTE_MAJOR ]] || $ALL_OPTION; then
 					LM_URLS+=("$REMOTE_URL")
 					LM_VERSIONS+=("$REMOTE_VERSION")
 					LM_CHECKSUMS+=("$REMOTE_CHECKSUM")
 					LM_BUILDS+=("$REMOTE_BUILD")
+					[[ ${#REMOTE_VERSION} > $FORMAT_WIDTH ]] && FORMAT_WIDTH=${#REMOTE_VERSION}
 				fi
 				(( i += 1 ))
 				continue
@@ -496,11 +497,13 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 			tl=$(tput lines)
 			(( count > tl - 5 )) && FORMAT="/usr/bin/column"
 			(( i = 0 ))
+			VERSION_PAD="%-${FORMAT_WIDTH}s"
 			while (( i < count )); do
 				(( n = i + 1 ))
-				INDEX=$(printf '%4s  ' $n)
-				ROW="$INDEX"
-				ROW+="${LM_VERSIONS[$i]}  "
+				FORMAT_INDEX=$(printf '%4s |  ' $n)
+				ROW="$FORMAT_INDEX"
+				FORMAT_VERSION=$(printf "$VERSION_PAD" ${LM_VERSIONS[$i]})
+				ROW+="$FORMAT_VERSION  "
 				ROW+="${LM_BUILDS[$i]}"
 				printf '%s\n' "$ROW"
 				(( i += 1 ))
