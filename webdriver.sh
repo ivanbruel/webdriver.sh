@@ -70,7 +70,6 @@ HOST_PREFIX="/usr/local"
 
 CHANGES_MADE=false
 RESTART_REQUIRED=true
-NO_CACHE_UPDATE_OPTION=false
 REINSTALL_OPTION=false
 REINSTALL_MESSAGE=false
 SYSTEM_OPTION=false
@@ -87,13 +86,12 @@ if [[ $BASENAME =~ "system-update" ]]; then
 fi
 
 function usage() {
-	printf 'Usage: %s [-f] [-c] [-u URL|-r|-m [BUILD]|-p]\n' "$BASENAME"
+	printf 'Usage: %s [-f] [-l|-u URL|-r|-m [BUILD]]\n' "$BASENAME"
+	printf '          -l            choose which driver to install from a list\n'
 	printf '          -u URL        install driver package at URL, no version checks\n'
 	printf '          -r            uninstall drivers\n'
 	printf "          -m [BUILD]    modify the current driver's NVDARequiredOS"'\n'
 	printf '          -f            re-install the current drivers\n'
-        printf "          -c            don't update caches"'\n'
-	printf '          -p            download the updates property list and exit\n'
 }
 
 function version() {
@@ -129,9 +127,7 @@ while getopts ":hvlpu:rm:cfSy!" OPTION; do
 		COMMAND="SET_REQUIRED_OS_AND_EXIT"
 		(( COMMAND_COUNT += 1 ));;
 	"c")
-		$FS_ALLOWED
-		NO_CACHE_UPDATE_OPTION=true
-		RESTART_REQUIRED=false;;
+		printf 'Info: The no caches option -c has been removed\n';;
 	"f")
 		REINSTALL_OPTION=true;;
 	"S")	
@@ -283,7 +279,7 @@ function caches_error() {
 }
 
 function update_caches() {
-	if $NO_CACHE_UPDATE_OPTION; then
+	if $SYSTEM_OPTION; then
 		warning "Caches are not being updated"
 		return 0
 	fi

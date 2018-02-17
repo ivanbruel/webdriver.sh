@@ -23,6 +23,14 @@ sudo webdriver
 
 Installs/updates to the latest available Nvidia web drivers for your current version of macOS.
 
+#### Choose from a list of drivers
+
+```
+sudo webdriver -l
+```
+
+Displays a list of driver versions, choose one to install it
+
 #### Install a specific driver version
 
 ```
@@ -53,7 +61,7 @@ Modifies the installed driver's NVDARequiredOS. If no [build] is provided for op
 webdriver -h
 ```
 
-Displays help, lists all available options
+Displays help, lists options
 
 ## Configuration
 
