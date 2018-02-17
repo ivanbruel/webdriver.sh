@@ -492,6 +492,9 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 		while true; do
 			printf '%bRunning on:%b macOS %s (%s)\n\n' "$B" "$R" "$PRODUCT_VERSION" "$BUILD"
 			count=${#LM_VERSIONS[@]}
+			FORMAT="/usr/bin/tee"
+			tl=$(tput lines)
+			(( count > tl - 5 )) && FORMAT="/usr/bin/column"
 			(( i = 0 ))
 			while (( i < count )); do
 				(( n = i + 1 ))
@@ -501,7 +504,7 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 				ROW+="${LM_BUILDS[$i]}"
 				printf '%s\n' "$ROW"
 				(( i += 1 ))
-			done;
+			done | $FORMAT
 			printf '\n'
 			printf '%bWhat now?%b [1-%s] : ' "$B" "$R" "$count"
 			read int
