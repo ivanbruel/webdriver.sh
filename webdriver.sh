@@ -489,8 +489,8 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 	done;
 	
 	if [[ $COMMAND == "LIST_MODE" ]]; then
-		printf 'Running on: macOS %s (%s)\n\n' "$PRODUCT_VERSION" "$BUILD"
 		while true; do
+			printf '%bRunning on:%b macOS %s (%s)\n\n' "$B" "$R" "$PRODUCT_VERSION" "$BUILD"
 			count=${#LM_VERSIONS[@]}
 			(( i = 0 ))
 			while (( i < count )); do
@@ -503,7 +503,7 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 				(( i += 1 ))
 			done;
 			printf '\n'
-			printf 'What now? [1-%s] : ' "$count"
+			printf '%bWhat now?%b [1-%s] : ' "$B" "$R" "$count"
 			read int
 			[[ -z $int ]] && exit_ok
 			if [[ $int =~ ^[0-9] ]] && (( int >= 1 )) && (( int <= count )); then
@@ -514,7 +514,7 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 				REMOTE_CHECKSUM=${LM_CHECKSUMS[$int]}
 				break
 			fi
-			printf 'Invalid input: %s\n\n' "$int"
+			printf '\nTry again...\n\n' "$int"
 			tput bel
 		done
 	fi
