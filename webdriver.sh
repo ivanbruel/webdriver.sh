@@ -307,8 +307,8 @@ function match_build() {
 	# match_build $1:local $2:remote
 	local -i LOCAL=$1
 	local -i REMOTE=$2
-	[[ $LOCAL == $(( LOCAL + 1 )) ]] && return 0
-	[[ $REMOTE -ge 17 && $REMOTE == $(( LOCAL - 1 )) ]] && return 0
+	[[ $REMOTE -eq $(( LOCAL + 1 )) ]] && return 0
+	[[ $REMOTE -ge 17 && $REMOTE -eq $(( LOCAL - 1 )) ]] && return 0
 	return 1
 }
 
