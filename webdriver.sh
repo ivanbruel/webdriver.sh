@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.2.2"
+SCRIPT_VERSION="1.2.3"
 BASENAME=$(/usr/bin/basename "$0")
 MACOS_PRODUCT_VERSION=$(/usr/bin/sw_vers -productVersion)
 if ! /usr/bin/grep -e "10.13" <<< "$MACOS_PRODUCT_VERSION" > /dev/null 2>&1; then

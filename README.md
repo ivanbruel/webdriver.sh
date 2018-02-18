@@ -35,15 +35,21 @@ Installs/updates to the latest available Nvidia web drivers for your current ver
 sudo webdriver -l
 ```
 
-Displays a list of driver versions, choose one to install it
+Displays a list of driver versions, choose one to download and install it
 
 #### Install a specific driver version
+
+```
+sudo webdriver FILE
+```
+
+Installs the drivers from the package located at FILE.
 
 ```
 sudo webdriver -u URL
 ```
 
-Installs the drivers from the package at URL (without version checks). There is a nice list of available drivers/URLs maintained [here](http://www.macvidcards.com/drivers.html)
+Downloads and installs the drivers from the package at URL. There is a nice list of available drivers/URLs maintained [here](http://www.macvidcards.com/drivers.html)
 
 #### Uninstall
 
@@ -56,10 +62,10 @@ Removes Nvidia's web drivers from your system.
 #### Patch drivers to load on a different version of macOS
 
 ```
-sudo webdriver -m [build]
+sudo webdriver -m [BUILD]
 ```
 
-Modifies the installed driver's NVDARequiredOS. If no [build] is provided for option -m, the installed macOS's build version string will be used.
+Modifies the installed driver's NVDARequiredOS. If no [BUILD] is provided for option -m, the installed macOS's build version string will be used.
 
 #### Show help
 
