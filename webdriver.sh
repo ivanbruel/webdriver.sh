@@ -17,21 +17,17 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.1.1"
+[[ $(/usr/bin/id -u) != "0" ]] && exec /usr/bin/sudo -u root "$0" "$@"
 
+SCRIPT_VERSION="1.1.1"
 BASENAME=$(/usr/bin/basename "$0")
-RAW_ARGS="$*"
 MACOS_PRODUCT_VERSION=$(/usr/bin/sw_vers -productVersion)
 if ! /usr/bin/grep -e "10.13" <<< "$MACOS_PRODUCT_VERSION" > /dev/null 2>&1; then
 	printf 'Unsupported macOS version'; exit 1; fi
 if ! BUILD=$(/usr/bin/sw_vers -buildVersion); then
 	printf 'sw_vers error\n'; exit $?; fi
 	
-# Check root
-if [[ $(/usr/bin/id -u) != "0" ]]; then
-	printf 'Run it as root: sudo %s %s' "$BASENAME" "$RAW_ARGS"; exit 0; fi
-	
-# SIP  
+# SIP
 KEXT_ALLOWED=false
 FS_ALLOWED=false
 KEXT_PATTERN='System Integrity Protection status: disabled|Kext Signing: disabled'
