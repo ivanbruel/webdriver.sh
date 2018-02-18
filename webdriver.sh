@@ -17,19 +17,16 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-[[ $(/usr/bin/id -u) != "0" ]] && exec /usr/bin/sudo -u root "$0" "$@"
-
 SCRIPT_VERSION="1.1.1"
 BASENAME=$(/usr/bin/basename "$0")
 MACOS_PRODUCT_VERSION=$(/usr/bin/sw_vers -productVersion)
 if ! /usr/bin/grep -e "10.13" <<< "$MACOS_PRODUCT_VERSION" > /dev/null 2>&1; then
 	printf 'Unsupported macOS version'; exit 1; fi
-if ! BUILD=$(/usr/bin/sw_vers -buildVersion); then
-	printf 'sw_vers error\n'; exit $?; fi
+if ! LOCAL_BUILD=$(/usr/bin/sw_vers -buildVersion); then
+	printf 'sw_vers error'; exit $?; fi
 	
 # SIP
-KEXT_ALLOWED=false
-FS_ALLOWED=false
+declare KEXT_ALLOWED=false FS_ALLOWED=false
 KEXT_PATTERN='System Integrity Protection status: disabled|Kext Signing: disabled'
 CSR_STATUS=$(/usr/bin/csrutil status)
 /usr/bin/csrutil status | /usr/bin/grep -E -e "$KEXT_PATTERN" <<< "$CSR_STATUS" > /dev/null \
@@ -37,9 +34,7 @@ CSR_STATUS=$(/usr/bin/csrutil status)
 /usr/bin/touch /System > /dev/null 2>&1 && FS_ALLOWED=true
 
 # Variables
-R='\e[0m' # no formatting
-B='\e[1m' # bold
-U='\e[4m' # underline
+declare R='\e[0m' B='\e[1m' U='\e[4m'
 TMP_DIR=$(/usr/bin/mktemp -dt webdriver)
 UPDATES_PLIST="${TMP_DIR}/$(/usr/bin/uuidgen)"
 DOWNLOADED_PKG="${TMP_DIR}/$(/usr/bin/uuidgen)"
@@ -56,25 +51,24 @@ ERR_PLIST_READ="Couldn't read a required value from a property list"
 ERR_PLIST_WRITE="Couldn't set a required value in a property list"
 SET_NVRAM="/usr/sbin/nvram nvda_drv=1%00"
 UNSET_NVRAM="/usr/sbin/nvram -d nvda_drv"
-CHANGES_MADE=false
-RESTART_REQUIRED=true
-REINSTALL_MESSAGE=false
-declare -i EXIT_ERROR=0
-declare -i COMMAND_COUNT=0
+declare CHANGES_MADE=false RESTART_REQUIRED=true REINSTALL_MESSAGE=false
+declare -i EXIT_ERROR=0 COMMAND_COUNT=0
+declare OPT_REINSTALL=false OPT_SYSTEM=false OPT_ALL=false
 
-if [[ $BASENAME =~ "system-update" ]]; then
+if [[ $BASENAME =~ "swebdriver" ]]; then
 	[[ $1 != "-u" ]] && exit 1
 	[[ -z $2 ]] && exit 1
-	set -- "-Su" "$2"
+	set -- "-u" "$2"
+	OPT_SYSTEM=true
 fi
 
 function usage() {
 	printf 'Usage: %s [-f] [-l|-u URL|-r|-m [BUILD]]\n' "$BASENAME"
-	printf '          -l            choose which driver to install from a list\n'
-	printf '          -u URL        install driver package at URL, no version checks\n'
-	printf '          -r            uninstall drivers\n'
-	printf "          -m [BUILD]    modify the current driver's NVDARequiredOS"'\n'
-	printf '          -f            re-install the current drivers\n'
+	printf '    -l            choose which driver to install from a list\n'
+	printf '    -u URL        install driver package at URL, no version checks\n'
+	printf '    -r            uninstall drivers\n'
+	printf "    -m [BUILD]    modify the current driver's NVDARequiredOS"'\n'
+	printf '    -f            re-install the current drivers\n'
 }
 
 function version() {
@@ -84,8 +78,7 @@ function version() {
 	printf 'See the GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n'
 }
 
-declare OPT_REINSTALL=false OPT_SYSTEM=false OPT_ALL=false
-while getopts ":hvlu:rm:fSa" OPTION; do
+while getopts ":hvlu:rm:fa" OPTION; do
 	case $OPTION in
 	"h")
 		usage
@@ -94,23 +87,21 @@ while getopts ":hvlu:rm:fSa" OPTION; do
 		version
 		exit 0;;
 	"l")
-		COMMAND="LIST_MODE"
+		COMMAND="CMD_LIST"
 		COMMAND_COUNT+=1;;
 	"u")
-		COMMAND="USER_PROVIDED_URL"
+		COMMAND="CMD_USER_URL"
 		REMOTE_URL="$OPTARG"
 		COMMAND_COUNT+=1;;
 	"r")
-		COMMAND="UNINSTALL_DRIVERS_AND_EXIT"
+		COMMAND="CMD_UNINSTALL"
 		COMMAND_COUNT+=1;;
 	"m")
-		MOD_REQUIRED_OS="$OPTARG"
-		COMMAND="SET_REQUIRED_OS_AND_EXIT"
+		COMMAND="CMD_REQUIRED_OS"
+		OPT_REQUIRED_OS="$OPTARG"
 		COMMAND_COUNT+=1;;
 	"f")
 		OPT_REINSTALL=true;;
-	"S")	
-		OPT_SYSTEM=true;;
 	"a")
 		OPT_ALL=true;;
 	"?")
@@ -119,8 +110,8 @@ while getopts ":hvlu:rm:fSa" OPTION; do
 		exit 1;;
 	":")
 		if [[ $OPTARG == "m" ]]; then
-			MOD_REQUIRED_OS="$BUILD"
-			COMMAND="SET_REQUIRED_OS_AND_EXIT"
+			OPT_REQUIRED_OS="$LOCAL_BUILD"
+			COMMAND="CMD_REQUIRED_OS"
 			COMMAND_COUNT+=1
 		else
 			printf 'Missing parameter for -%s\n' "$OPTARG"
@@ -134,6 +125,8 @@ while getopts ":hvlu:rm:fSa" OPTION; do
 		exit 1
 	fi
 done
+
+[[ $(/usr/bin/id -u) != "0" ]] && exec /usr/bin/sudo -u root "$0" "$@"
 
 function s() {
 	# s $@: args... 
@@ -149,11 +142,8 @@ function e() {
 	else
 		printf '%bError%b: %s (%s)\n' "$U" "$R" "$1" "$2"
 	fi
-	if $CHANGES_MADE; then
-		$UNSET_NVRAM
-	else
-		printf 'No changes were made\n'
-	fi
+	$CHANGES_MADE && $UNSET_NVRAM
+	! $CHANGES_MADE  && printf 'No changes were made\n'
 	exit 1
 }
 
@@ -164,11 +154,8 @@ function exit_ok() {
 
 function exit_after_install() {
 	printf 'Complete.'
-	if $RESTART_REQUIRED; then
-		printf ' You should reboot now.\n'
-	else
-		printf '\n'
-	fi
+	$RESTART_REQUIRED && printf ' You should reboot now.'
+	printf '\n'
 	s rm -rf "$TMP_DIR"
 	exit $EXIT_ERROR
 }
@@ -208,6 +195,7 @@ function caches_error() {
 	# caches_error $1: warning_message
 	warning "$1"
 	EXIT_ERROR=1
+	RESTART_REQUIRED=false
 }
 
 function update_caches() {
@@ -215,22 +203,19 @@ function update_caches() {
 		warning "Caches are not being updated"
 		return 0
 	fi
-	printf '%bUpdating caches...%b\n' "$B" "$R"
 	local PLK="Created prelinked kernel"
+	local ERR_PLK="There was a problem creating the prelinked kernel"
 	local SLE="caches updated for /System/Library/Extensions"
+	local ERR_SLE="There was a problem updating directory caches for /S/L/E"
 	local LE="caches updated for /Library/Extensions"
-	local RESULT=
+	local ERR_LE="There was a problem updating directory caches for /L/E"
+	local RESULT
+	printf '%bUpdating caches...%b\n' "$B" "$R"
 	RESULT=$(/usr/sbin/kextcache -v 2 -i / 2>&1)
-	s /usr/bin/grep "$PLK" <<< "$RESULT" \
-		|| caches_error "There was a problem creating the prelinked kernel"
-	s /usr/bin/grep "$SLE" <<< "$RESULT" \
-		|| caches_error "There was a problem updating directory caches for /S/L/E"
-	s /usr/bin/grep "$LE" <<< "$RESULT" \
-		|| caches_error "There was a problem updating directory caches for /L/E"
-	if (( EXIT_ERROR != 0 )); then
-		printf '\nTo try again use:\n%bsudo kextcache -i /%b\n\n' "$B" "$R"
-		RESTART_REQUIRED=false
-	fi	 
+	s /usr/bin/grep "$PLK" <<< "$RESULT" || caches_error "$ERR_PLK"
+	s /usr/bin/grep "$SLE" <<< "$RESULT" || caches_error "$ERR_SLE"
+	s /usr/bin/grep "$LE" <<< "$RESULT" || caches_error "$ERR_LE"
+	(( EXIT_ERROR != 0 )) && printf '\nTo try again use:\n%bsudo kextcache -i /%b\n\n' "$B" "$R"	 
 }
 
 function ask() {
@@ -249,11 +234,10 @@ function ask() {
 function plistb() {
 	# plistb $1: command, $2: file
 	local RESULT
-	if ! [[ -f "$2" ]]; then
-		return 1;
+	if [[ ! -f "$2" ]]; then
+		return 1
 	else 
-		if ! RESULT=$(/usr/libexec/PlistBuddy -c "$1" "$2" 2> /dev/null); then
-			return 1; fi
+		! RESULT=$(/usr/libexec/PlistBuddy -c "$1" "$2" 2> /dev/null) && return 1
 	fi
 	[[ $RESULT ]] && printf "%s" "$RESULT"
 	return 0
@@ -269,24 +253,24 @@ function sha512() {
 function set_required_os() {
 	# set_required_os $1: target_version
 	local RESULT
-	local BUILD="$1"
-	local MOD_KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
-	RESULT=$(plistb "Print $MOD_KEY" "${STARTUP_KEXT}/Contents/Info.plist") || e "$ERR_PLIST_READ"
-	if [[ $RESULT == "$BUILD" ]]; then
-		printf 'NVDARequiredOS already set to %s\n' "$BUILD"
+	local TARGET_BUILD="$1"
+	local KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
+	RESULT=$(plistb "Print $KEY" "${STARTUP_KEXT}/Contents/Info.plist") || e "$ERR_PLIST_READ"
+	if [[ $RESULT == "$TARGET_BUILD" ]]; then
+		printf 'NVDARequiredOS already set to %s\n' "$TARGET_BUILD"
 	else 
 		CHANGES_MADE=true
-		printf '%bSetting NVDARequiredOS to %s...%b\n' "$B" "$BUILD" "$R"
-		plistb "Set $MOD_KEY $BUILD" "${STARTUP_KEXT}/Contents/Info.plist" || e "$ERR_PLIST_WRITE"
+		printf '%bSetting NVDARequiredOS to %s...%b\n' "$B" "$TARGET_BUILD" "$R"
+		plistb "Set $KEY $TARGET_BUILD" "${STARTUP_KEXT}/Contents/Info.plist" || e "$ERR_PLIST_WRITE"
 	fi
 	if [[ -f "${EGPU_KEXT}/Contents/Info.plist" ]]; then
-		RESULT=$(plistb "Print $MOD_KEY" "${EGPU_KEXT}/Contents/Info.plist") || e "$ERR_PLIST_READ"
-		if [[ $RESULT == "$BUILD" ]]; then
-			printf 'Found NVDAEGPUSupport.kext, already set to %s\n' "$BUILD"
+		RESULT=$(plistb "Print $KEY" "${EGPU_KEXT}/Contents/Info.plist") || e "$ERR_PLIST_READ"
+		if [[ $RESULT == "$TARGET_BUILD" ]]; then
+			printf 'Found NVDAEGPUSupport.kext, already set to %s\n' "$TARGET_BUILD"
 		else
 			CHANGES_MADE=true
-			printf '%bFound NVDAEGPUSupport.kext, setting NVDARequiredOS to %s...%b\n' "$B" "$BUILD" "$R"
-			plistb "Set $MOD_KEY $BUILD" "${EGPU_KEXT}/Contents/Info.plist"  || e "$ERR_PLIST_WRITE"
+			printf '%bFound NVDAEGPUSupport.kext, setting NVDARequiredOS to %s...%b\n' "$B" "$TARGET_BUILD" "$R"
+			plistb "Set $KEY $TARGET_BUILD" "${EGPU_KEXT}/Contents/Info.plist"  || e "$ERR_PLIST_WRITE"
 		fi
 	fi
 }
@@ -294,12 +278,12 @@ function set_required_os() {
 function check_required_os() {
 	$OPT_SYSTEM && return 0
 	local RESULT
-	local MOD_KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
+	local KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
 	if [[ -f ${STARTUP_KEXT}/Contents/Info.plist ]]; then
-		RESULT=$(plistb "Print $MOD_KEY" "${STARTUP_KEXT}/Contents/Info.plist") || e "$ERR_PLIST_READ"
-		if [[ $RESULT != "$BUILD" ]]; then
+		RESULT=$(plistb "Print $KEY" "${STARTUP_KEXT}/Contents/Info.plist") || e "$ERR_PLIST_READ"
+		if [[ $RESULT != "$LOCAL_BUILD" ]]; then
 			ask "Modify installed driver for the current macOS version?" || return 0
-			set_required_os "$BUILD"
+			set_required_os "$LOCAL_BUILD"
 			RESTART_REQUIRED=true
 			$KEXT_ALLOWED || warning "Disable SIP, run 'kextcache -i /' to allow modified drivers to load"
 			return 1
@@ -325,22 +309,22 @@ function sql_add_kext() {
 
 function match_build() {
 	# match_build $1:local $2:remote
-	local LOCAL=$(( $1 ))
-	local REMOTE=$(( $2 ))
+	local -i LOCAL=$1
+	local -i REMOTE=$2
 	[[ $LOCAL == $(( LOCAL + 1 )) ]] && return 0
 	[[ $REMOTE -ge 17 && $REMOTE == $(( LOCAL - 1 )) ]] && return 0
 	return 1
 }
 
-# COMMAND SET_REQUIRED_OS_AND_EXIT
+# COMMAND CMD_REQUIRED_OS
 
-if [[ $COMMAND == "SET_REQUIRED_OS_AND_EXIT" ]]; then
+if [[ $COMMAND == "CMD_REQUIRED_OS" ]]; then
 	EXIT_ERROR=0
 	if [[ ! -f "${STARTUP_KEXT}/Contents/Info.plist" ]]; then
 		printf 'Nvidia driver not found\n'
 		EXIT_ERROR=1
 	else
-		set_required_os "$MOD_REQUIRED_OS"
+		set_required_os "$OPT_REQUIRED_OS"
 	fi
 	if $CHANGES_MADE; then
 		update_caches
@@ -356,9 +340,9 @@ if [[ $COMMAND == "SET_REQUIRED_OS_AND_EXIT" ]]; then
 	exit $EXIT_ERROR
 fi
 
-# COMMAND UNINSTALL_DRIVERS_AND_EXIT
+# COMMAND CMD_UNINSTALL
 
-if [[ $COMMAND == "UNINSTALL_DRIVERS_AND_EXIT" ]]; then
+if [[ $COMMAND == "CMD_UNINSTALL" ]]; then
 	ask "Uninstall Nvidia web drivers?"
 	printf '%bRemoving files...%b\n' "$B" "$R"
 	CHANGES_MADE=true
@@ -370,11 +354,11 @@ fi
 
 # UPDATER/INSTALLER
 
-if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
-	if [[ $COMMAND == "LIST_MODE" ]]; then
-		LM_MAJOR=${BUILD:0:2}
-		declare -a LM_URLS LM_VERSIONS LM_CHECKSUMS LM_BUILDS
-		declare -i FORMAT_WIDTH
+if [[ $COMMAND != "CMD_USER_URL" ]]; then
+	if [[ $COMMAND == "CMD_LIST" ]]; then
+		LOCAL_MAJAOR=${LOCAL_BUILD:0:2}
+		declare -a LIST_URLS LIST_VERSIONS LIST_CHECKSUMS LIST_BUILDS
+		declare -i VERSION_MAX_WIDTH
 	fi
 	# No URL specified, get installed web driver verison
 	INSTALLED_VERSION=$(installed_version)
@@ -388,57 +372,57 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 	while (( i < c )); do
 		unset -v REMOTE_BUILD REMOTE_MAJOR REMOTE_URL REMOTE_VERSION REMOTE_CHECKSUM
 		! REMOTE_BUILD=$(plistb "Print :updates:${i}:OS" "$UPDATES_PLIST") && break			
-		if [[ $REMOTE_BUILD == "$BUILD" || $COMMAND == "LIST_MODE" ]]; then
+		if [[ $REMOTE_BUILD == "$LOCAL_BUILD" || $COMMAND == "CMD_LIST" ]]; then
 			REMOTE_MAJOR=${REMOTE_BUILD:0:2}
 			REMOTE_URL=$(plistb "Print :updates:${i}:downloadURL" "$UPDATES_PLIST")
 			REMOTE_VERSION=$(plistb "Print :updates:${i}:version" "$UPDATES_PLIST")
 			REMOTE_CHECKSUM=$(plistb "Print :updates:${i}:checksum" "$UPDATES_PLIST")
-			if [[ $COMMAND == "LIST_MODE" ]]; then
-				if [[ $LM_MAJOR == "$REMOTE_MAJOR" ]] || ( $OPT_ALL && match_build "$LM_MAJOR" "$REMOTE_MAJOR" ); then
-					LM_URLS+=("$REMOTE_URL")
-					LM_VERSIONS+=("$REMOTE_VERSION")
-					LM_CHECKSUMS+=("$REMOTE_CHECKSUM")
-					LM_BUILDS+=("$REMOTE_BUILD")
-					[[ ${#REMOTE_VERSION} > $FORMAT_WIDTH ]] && FORMAT_WIDTH=${#REMOTE_VERSION}
+			if [[ $COMMAND == "CMD_LIST" ]]; then
+				if [[ $LOCAL_MAJAOR == "$REMOTE_MAJOR" ]] || ( $OPT_ALL && match_build "$LOCAL_MAJAOR" "$REMOTE_MAJOR" ); then
+					LIST_URLS+=("$REMOTE_URL")
+					LIST_VERSIONS+=("$REMOTE_VERSION")
+					LIST_CHECKSUMS+=("$REMOTE_CHECKSUM")
+					LIST_BUILDS+=("$REMOTE_BUILD")
+					[[ ${#REMOTE_VERSION} -gt $VERSION_MAX_WIDTH ]] && VERSION_MAX_WIDTH=${#REMOTE_VERSION}
 				fi
-				(( ${#LM_VERSIONS[@]} > 47 )) && break
-				((i += 1 ))
+				(( ${#LIST_VERSIONS[@]} > 47 )) && break
+				(( i += 1 ))
 				continue
 			fi	
 			break
 		fi
 		(( i += 1 ))
 	done;
-	if [[ $COMMAND == "LIST_MODE" ]]; then
+	if [[ $COMMAND == "CMD_LIST" ]]; then
 		while true; do
-			printf '%bRunning on:%b macOS %s (%s)\n\n' "$B" "$R" "$MACOS_PRODUCT_VERSION" "$BUILD"
-			count=${#LM_VERSIONS[@]}
-			FORMAT="/usr/bin/tee"
+			printf '%bRunning on:%b macOS %s (%s)\n\n' "$B" "$R" "$MACOS_PRODUCT_VERSION" "$LOCAL_BUILD"
+			count=${#LIST_VERSIONS[@]}
+			FORMAT_COMMAND="/usr/bin/tee"
 			tl=$(tput lines)
-			[[ $count > $(( tl - 5 )) || $count -gt 15 ]] && FORMAT="/usr/bin/column"
+			[[ $count > $(( tl - 5 )) || $count -gt 15 ]] && FORMAT_COMMAND="/usr/bin/column"
 			(( i = 0 ))
-			VERSION_PAD="%-${FORMAT_WIDTH}s"
+			VERSION_FORMAT_STRING="%-${VERSION_MAX_WIDTH}s"
 			while (( i < count )); do
 				(( n = i + 1 ))
-				FORMAT_INDEX=$(printf '%4s |  ' $n)
-				ROW="$FORMAT_INDEX"
+				PADDED_INDEX=$(printf '%4s |  ' $n)
+				ROW="$PADDED_INDEX"
 				# shellcheck disable=SC2059
-				FORMAT_VERSION=$(printf "$VERSION_PAD" "${LM_VERSIONS[$i]}")
-				ROW+="$FORMAT_VERSION  "
-				ROW+="${LM_BUILDS[$i]}"
+				PADDED_VERSION=$(printf "$VERSION_FORMAT_STRING" "${LIST_VERSIONS[$i]}")
+				ROW+="$PADDED_VERSION  "
+				ROW+="${LIST_BUILDS[$i]}"
 				printf '%s\n' "$ROW"
 				(( i += 1 ))
-			done | $FORMAT
+			done | $FORMAT_COMMAND
 			printf '\n'
 			printf '%bWhat now?%b [1-%s] : ' "$B" "$R" "$count"
 			read -r int
 			[[ -z $int ]] && exit_ok
 			if [[ $int =~ ^[0-9] ]] && (( int >= 1 )) && (( int <= count )); then
 				(( int -= 1 ))
-				REMOTE_URL=${LM_URLS[$int]}
-				REMOTE_VERSION=${LM_VERSIONS[$int]}
-				REMOTE_BUILD=${LM_BUILDS[$int]}
-				REMOTE_CHECKSUM=${LM_CHECKSUMS[$int]}
+				REMOTE_URL=${LIST_URLS[$int]}
+				REMOTE_VERSION=${LIST_VERSIONS[$int]}
+				REMOTE_BUILD=${LIST_BUILDS[$int]}
+				REMOTE_CHECKSUM=${LIST_CHECKSUMS[$int]}
 				break
 			fi
 			printf '\nTry again...\n\n'
@@ -448,7 +432,7 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 	# Determine next action
 	if [[ -z $REMOTE_URL || -z $REMOTE_VERSION ]]; then
 		# No driver available, or error during check, exit
-		printf 'No driver available for %s\n' "$BUILD"
+		printf 'No driver available for %s\n' "$LOCAL_BUILD"
 		check_required_os
 		if $CHANGES_MADE; then
 			update_caches
@@ -457,7 +441,7 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 		exit_ok
 	elif [[ $REMOTE_VERSION == "$INSTALLED_VERSION" ]]; then
 		# Latest already installed, exit
-		printf '%s for %s already installed\n' "$REMOTE_VERSION" "$BUILD"
+		printf '%s for %s already installed\n' "$REMOTE_VERSION" "$LOCAL_BUILD"
 		if ! $OPT_REINSTALL; then
 			# printf 'To re-install use -f\n' "$BASENAME"
 			check_required_os
@@ -469,7 +453,7 @@ if [[ $COMMAND != "USER_PROVIDED_URL" ]]; then
 		fi
 		REINSTALL_MESSAGE=true
 	else
-		if [[ $COMMAND != "LIST_MODE" ]]; then
+		if [[ $COMMAND != "CMD_LIST" ]]; then
 			# Found an update, proceed to installation
 			printf 'Web driver %s available...\n' "$REMOTE_VERSION"
 		else
@@ -497,14 +481,14 @@ fi
 
 REMOTE_HOST=$(printf '%s' "$REMOTE_URL" | /usr/bin/awk -F/ '{print $3}')
 if ! s /usr/bin/host "$REMOTE_HOST"; then
-	[[ $COMMAND == "USER_PROVIDED_URL" ]] && e "Unable to resolve host, check your URL"
+	[[ $COMMAND == "CMD_USER_URL" ]] && e "Unable to resolve host, check your URL"
 	REMOTE_URL="https://images.nvidia.com/mac/pkg/"
 	REMOTE_URL+="${REMOTE_VERSION%%.*}"
 	REMOTE_URL+="/WebDriver-${REMOTE_VERSION}.pkg"
 fi
 HEADERS=$(/usr/bin/curl -I "$REMOTE_URL" 2>&1) || e "Failed to download HTTP headers"
 s /usr/bin/grep "octet-stream" <<< "$HEADERS" || warning "Unexpected HTTP content type"
-[[ $COMMAND != "USER_PROVIDED_URL" ]] && printf 'URL: %s\n' "$REMOTE_URL"
+[[ $COMMAND != "CMD_USER_URL" ]] && printf 'URL: %s\n' "$REMOTE_URL"
 
 # Download
 
@@ -565,9 +549,8 @@ fi
 # Install
 
 printf '%bInstalling...%b\n' "$B" "$R"
-CHANGES_MADE=true
 uninstall_drivers
-NEEDS_KEXTCACHE=false
+declare CHANGES_MADE=true NEEDS_KEXTCACHE=false
 if ! $FS_ALLOWED; then
 	s /usr/bin/pkgbuild --identifier com.nvidia.web-driver --root "$DRIVERS_ROOT" "$DRIVERS_PKG"
 	s /usr/sbin/installer -allowUntrusted -pkg "$DRIVERS_PKG" -target / || e "installer error" $?
@@ -578,7 +561,7 @@ else
 fi
 etc "/etc/webdriver.sh/post-install.conf" "$DRIVERS_ROOT"
 
-# Check extensions are loadable, update caches, set nvram variable
+# Check extensions are loadable only if SIP is enabled
 
 # If invalid kexts are allowed the security prompt won't show up - in that
 # case the extensions will likely load (for so long as SIP remains disabled)
@@ -601,6 +584,9 @@ if ! $FS_ALLOWED && ! $KEXT_ALLOWED && ! s /usr/bin/kextutil -tn "$STARTUP_KEXT"
 		sleep 5
 	done
 fi
+
+# Update caches, set nvram variable
+
 check_required_os || NEEDS_KEXTCACHE=true
 $NEEDS_KEXTCACHE && update_caches
 $SET_NVRAM
