@@ -13,6 +13,12 @@ brew tap vulgo/repo
 brew install webdriver.sh
 ```
 
+Update to the latest release
+
+```
+brew upgrade webdriver.sh
+```
+
 ## Example Usage
 
 #### Install or update drivers
