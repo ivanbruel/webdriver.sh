@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.2.0"
+SCRIPT_VERSION="1.2.2"
 BASENAME=$(/usr/bin/basename "$0")
 MACOS_PRODUCT_VERSION=$(/usr/bin/sw_vers -productVersion)
 if ! /usr/bin/grep -e "10.13" <<< "$MACOS_PRODUCT_VERSION" > /dev/null 2>&1; then
@@ -51,7 +51,7 @@ ERR_PLIST_READ="Couldn't read a required value from a property list"
 ERR_PLIST_WRITE="Couldn't set a required value in a property list"
 SET_NVRAM="/usr/sbin/nvram nvda_drv=1%00"
 UNSET_NVRAM="/usr/sbin/nvram -d nvda_drv"
-declare CHANGES_MADE=false RESTART_REQUIRED=true REINSTALL_MESSAGE=false
+declare CHANGES_MADE=false RESTART_REQUIRED=false REINSTALL_MESSAGE=false
 declare -i EXIT_ERROR=0 COMMAND_COUNT=0
 declare OPT_REINSTALL=false OPT_SYSTEM=false OPT_ALL=false
 
@@ -125,6 +125,18 @@ while getopts ":hvlu:rm:fa" OPTION; do
 		exit 1
 	fi
 done
+
+if (( COMMAND_COUNT == 0 )); then
+	shift $(( OPTIND - 1 ))
+	while (( $# > 0)); do
+		if [[ -f "$1" ]]; then
+			COMMAND="CMD_FILE"
+			OPT_FILEPATH="$1"
+			break
+		fi
+	shift
+	done
+fi
 
 [[ $(/usr/bin/id -u) != "0" ]] && exec /usr/bin/sudo -u root "$0" "$@"
 
@@ -350,13 +362,19 @@ fi
 
 # UPDATER/INSTALLER
 
-if [[ $COMMAND != "CMD_USER_URL" ]]; then
+if [[ $COMMAND == "CMD_USER_URL" ]]; then
+	# Invoked with -u option, proceed to installation
+	printf 'URL: %s\n' "$REMOTE_URL"
+elif [[ $COMMAND == "CMD_FILE" ]]; then
+	# Parsed file path, proceed to installation
+	printf 'File: %s\n' "$OPT_FILEPATH"
+else
+	# No URL / filepath
 	if [[ $COMMAND == "CMD_LIST" ]]; then
 		LOCAL_MAJAOR=${LOCAL_BUILD:0:2}
 		declare -a LIST_URLS LIST_VERSIONS LIST_CHECKSUMS LIST_BUILDS
 		declare -i VERSION_MAX_WIDTH
 	fi
-	# No URL specified, get installed web driver verison
 	INSTALLED_VERSION=$(installed_version)
 	# Get updates file
 	printf '%bChecking for updates...%b\n' "$B" "$R"
@@ -457,10 +475,6 @@ if [[ $COMMAND != "CMD_USER_URL" ]]; then
 			printf 'Selected: %s for %s\n' "$REMOTE_VERSION" "$REMOTE_BUILD"
 		fi
 	fi
-else
-	# Invoked with -u option, proceed to installation
-	printf 'URL: %s\n' "$REMOTE_URL"
-	RESTART_REQUIRED=false
 fi
 
 # Prompt install y/n
@@ -473,35 +487,36 @@ if ! $OPT_SYSTEM; then
 	fi
 fi
 
-# Check URL
+if [[ $COMMAND != "CMD_FILE" ]]; then
+	# Check URL
+	REMOTE_HOST=$(printf '%s' "$REMOTE_URL" | /usr/bin/awk -F/ '{print $3}')
+	if ! s /usr/bin/host "$REMOTE_HOST"; then
+		[[ $COMMAND == "CMD_USER_URL" ]] && e "Unable to resolve host, check your URL"
+		REMOTE_URL="https://images.nvidia.com/mac/pkg/"
+		REMOTE_URL+="${REMOTE_VERSION%%.*}"
+		REMOTE_URL+="/WebDriver-${REMOTE_VERSION}.pkg"
+	fi
+	HEADERS=$(/usr/bin/curl -I "$REMOTE_URL" 2>&1) || e "Failed to download HTTP headers"
+	s /usr/bin/grep "octet-stream" <<< "$HEADERS" || warning "Unexpected HTTP content type"
+	[[ $COMMAND != "CMD_USER_URL" ]] && printf 'URL: %s\n' "$REMOTE_URL"
 
-REMOTE_HOST=$(printf '%s' "$REMOTE_URL" | /usr/bin/awk -F/ '{print $3}')
-if ! s /usr/bin/host "$REMOTE_HOST"; then
-	[[ $COMMAND == "CMD_USER_URL" ]] && e "Unable to resolve host, check your URL"
-	REMOTE_URL="https://images.nvidia.com/mac/pkg/"
-	REMOTE_URL+="${REMOTE_VERSION%%.*}"
-	REMOTE_URL+="/WebDriver-${REMOTE_VERSION}.pkg"
-fi
-HEADERS=$(/usr/bin/curl -I "$REMOTE_URL" 2>&1) || e "Failed to download HTTP headers"
-s /usr/bin/grep "octet-stream" <<< "$HEADERS" || warning "Unexpected HTTP content type"
-[[ $COMMAND != "CMD_USER_URL" ]] && printf 'URL: %s\n' "$REMOTE_URL"
+	# Download
+	printf '%bDownloading package...%b\n' "$B" "$R"
+	/usr/bin/curl --connect-timeout 15 -# -o "$DOWNLOADED_PKG" "$REMOTE_URL" || e "Failed to download package" $?
 
-# Download
-
-printf '%bDownloading package...%b\n' "$B" "$R"
-/usr/bin/curl --connect-timeout 15 -# -o "$DOWNLOADED_PKG" "$REMOTE_URL" || e "Failed to download package" $?
-
-# Checksum
-
-LOCAL_CHECKSUM=$(sha512 "$DOWNLOADED_PKG")
-if [[ $REMOTE_CHECKSUM ]]; then
-	if [[ $LOCAL_CHECKSUM == "$REMOTE_CHECKSUM" ]]; then
-		printf 'SHA512: Verified\n'
+	# Checksum
+	LOCAL_CHECKSUM=$(sha512 "$DOWNLOADED_PKG")
+	if [[ $REMOTE_CHECKSUM ]]; then
+		if [[ $LOCAL_CHECKSUM == "$REMOTE_CHECKSUM" ]]; then
+			printf 'SHA512: Verified\n'
+		else
+			e "SHA512 verification failed"
+		fi
 	else
-		e "SHA512 verification failed"
+		printf 'SHA512: %s\n' "$LOCAL_CHECKSUM"
 	fi
 else
-	printf 'SHA512: %s\n' "$LOCAL_CHECKSUM"
+	/bin/mv "$OPT_FILEPATH" "$DOWNLOADED_PKG"
 fi
 
 # Unflatten
@@ -545,7 +560,7 @@ fi
 # Install
 
 uninstall_drivers
-declare CHANGES_MADE=true NEEDS_KEXTCACHE=false
+declare CHANGES_MADE=true NEEDS_KEXTCACHE=false RESTART_REQUIRED=true
 if ! $FS_ALLOWED; then
 	s /usr/bin/pkgbuild --identifier com.nvidia.web-driver --root "$DRIVERS_ROOT" "$DRIVERS_PKG"
 	warning "Don't restart until this process has completed"
