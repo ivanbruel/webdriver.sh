@@ -175,19 +175,15 @@ function etc() {
 }
 
 function uninstall_drivers() {
-	local EGPU_DEFAULT="/Library/Extensions/NVDAEGPUSupport.kext"
-	local EGPU_RENAMED="/Library/Extensions/EGPUSupport.kext"
 	local REMOVE_LIST="/Library/Extensions/GeForce* \
 		/Library/Extensions/NVDA* \
 		/System/Library/Extensions/GeForce*Web* \
 		/System/Library/Extensions/NVDA*Web*"
-	# Remove drivers
-	s mv "$EGPU_DEFAULT" "$EGPU_RENAMED"
+	s mv "$EGPU_KEXT" "~$EGPU_KEXT"
 	# shellcheck disable=SC2086
 	s rm -rf $REMOVE_LIST
-	# Remove driver flat package receipt
 	s pkgutil --forget com.nvidia.web-driver
-	s mv "$EGPU_RENAMED" "$EGPU_DEFAULT"
+	s mv "~$EGPU_KEXT" "$EGPU_KEXT"
 	etc "/etc/webdriver.sh/uninstall.conf"
 }
 
