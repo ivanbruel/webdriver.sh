@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.1.1"
+SCRIPT_VERSION="1.2.0"
 BASENAME=$(/usr/bin/basename "$0")
 MACOS_PRODUCT_VERSION=$(/usr/bin/sw_vers -productVersion)
 if ! /usr/bin/grep -e "10.13" <<< "$MACOS_PRODUCT_VERSION" > /dev/null 2>&1; then
@@ -548,13 +548,15 @@ fi
 
 # Install
 
-printf '%bInstalling...%b\n' "$B" "$R"
 uninstall_drivers
 declare CHANGES_MADE=true NEEDS_KEXTCACHE=false
 if ! $FS_ALLOWED; then
 	s /usr/bin/pkgbuild --identifier com.nvidia.web-driver --root "$DRIVERS_ROOT" "$DRIVERS_PKG"
+	warning "Don't restart until this process has completed"
+	printf '%bInstalling...%b\n' "$B" "$R"
 	s /usr/sbin/installer -allowUntrusted -pkg "$DRIVERS_PKG" -target / || e "installer error" $?
 else
+	printf '%bInstalling...%b\n' "$B" "$R"
 	cp -r "${DRIVERS_ROOT}"/Library/Extensions/* /Library/Extensions
 	cp -r "${DRIVERS_ROOT}"/System/Library/Extensions/* /System/Library/Extensions
 	NEEDS_KEXTCACHE=true
@@ -572,7 +574,6 @@ if ! $FS_ALLOWED && ! $KEXT_ALLOWED && ! s /usr/bin/kextutil -tn "$STARTUP_KEXT"
 	# without rebuilding caches, which needs to be done (again) once the extensions
 	# have been approved. Restart too soon and the extensions won't be included.
 	s /usr/bin/osascript -e "beep"
-	warning "Don't restart until this process has completed!"
 	printf 'Allow NVIDIA Corporation in security preferences to continue...\n'
 	NEEDS_KEXTCACHE=true
 	# This Apple script is from the Nvidia installer...
