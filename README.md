@@ -1,6 +1,11 @@
 # webdriver.sh
 
-![webdriver.sh screenshot](https://github.com/vulgo/webdriver.sh/raw/master/Images/screenshot.png "webdriver.sh screenshot")
+<p align="center">
+<picture>
+<source srcset="https://github.com/vulgo/webdriver.sh/raw/master/Images/screenshot.png, https://github.com/vulgo/webdriver.sh/raw/master/Images/screenshot@2x.png 2x" />
+<img src="https://github.com/vulgo/webdriver.sh/raw/master/Images/screenshot@2x.png" alt="webdriver.sh screenshot" width="800" />
+</picture>
+</p>
 
 Bash script for managing Nvidia's web drivers on macOS High Sierra.
 
