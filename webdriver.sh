@@ -165,7 +165,7 @@ function exit_quietly() {
 	exit $EXIT_ERROR
 }
 
-function exit_after_update() {
+function exit_after_changes() {
 	s rm -rf "$TMP_DIR"
 	[[ $EXIT_ERROR -eq 0 ]] && printf 'Complete.\n'
 	exit $EXIT_ERROR
@@ -227,9 +227,9 @@ function update_caches() {
 	local RESULT
 	printf '%bUpdating caches...%b\n' "$B" "$R"
 	RESULT=$(/usr/sbin/kextcache -v 2 -i / 2>&1)
-	s /usr/bin/grep "$PLK" <<< "$RESULT" || caches_error "$ERR_PLK"
-	s /usr/bin/grep "$SLE" <<< "$RESULT" || caches_error "$ERR_SLE"
-	s /usr/bin/grep "$LE" <<< "$RESULT" || caches_error "$ERR_LE"
+	s /usr/bin/grep -e "$PLK" <<< "$RESULT" || caches_error "$ERR_PLK"
+	s /usr/bin/grep -e "$SLE" <<< "$RESULT" || caches_error "$ERR_SLE"
+	s /usr/bin/grep -e "$LE" <<< "$RESULT" || caches_error "$ERR_LE"
 	(( EXIT_ERROR != 0 )) && printf '\nTo try again use:\n%bsudo kextcache -i /%b\n\n' "$B" "$R"	 
 }
 
@@ -256,13 +256,6 @@ function plistb() {
 	fi
 	[[ $RESULT ]] && printf "%s" "$RESULT"
 	return 0
-}
-
-function sha512() {
-	# checksum $1: file
-	local RESULT
-	RESULT=$(/usr/bin/shasum -a 512 "$1" | /usr/bin/awk '{print $1}')
-	[[ $RESULT ]] && printf '%s' "$RESULT"
 }
 
 function set_required_os() {
@@ -306,15 +299,6 @@ function check_required_os() {
 	fi
 }
 
-function installed_version() {
-	local PLIST="/Library/Extensions/GeForceWeb.kext/Contents/Info.plist"
-	if [[ -f $PLIST ]]; then
-		GET_INFO_STRING=$(plistb "Print :CFBundleGetInfoString" "$PLIST")
-		GET_INFO_STRING="${GET_INFO_STRING##* }"
-		printf "%s" "$GET_INFO_STRING"
-	fi
-}
-
 function sql_add_kext() {
 	# sql_add_kext $1:bundle_id
 	SQL+="insert or replace into kext_policy "
@@ -351,7 +335,7 @@ if [[ $COMMAND == "CMD_REQUIRED_OS" ]]; then
 	else
 		$UNSET_NVRAM
 	fi
-	exit_after_update
+	exit_after_changes
 fi
 
 # COMMAND CMD_UNINSTALL
@@ -381,7 +365,9 @@ else
 		declare -a LIST_URLS LIST_VERSIONS LIST_CHECKSUMS LIST_BUILDS
 		declare -i VERSION_MAX_WIDTH
 	fi
-	INSTALLED_VERSION=$(installed_version)
+	# Get installed version
+	INFO_STRING=$(plistb "Print :CFBundleGetInfoString" "/Library/Extensions/GeForceWeb.kext/Contents/Info.plist")
+	[[ $INFO_STRING ]] && INSTALLED_VERSION="${INFO_STRING##* }"
 	# Get updates file
 	printf '%bChecking for updates...%b\n' "$B" "$R"
 	/usr/bin/curl -s --connect-timeout 15 -m 45 -o "$UPDATES_PLIST" "https://gfestage.nvidia.com/mac-update" \
@@ -419,7 +405,7 @@ else
 			count=${#LIST_VERSIONS[@]}
 			FORMAT_COMMAND="/usr/bin/tee"
 			tl=$(tput lines)
-			[[ $count > $(( tl - 5 )) || $count -gt 15 ]] && FORMAT_COMMAND="/usr/bin/column"
+			[[ $count -gt $(( tl - 5 )) || $count -gt 15 ]] && FORMAT_COMMAND="/usr/bin/column"
 			(( i = 0 ))
 			VERSION_FORMAT_STRING="%-${VERSION_MAX_WIDTH}s"
 			while (( i < count )); do
@@ -456,7 +442,7 @@ else
 		if ! check_required_os; then
 			update_caches
 			$SET_NVRAM
-			exit_after_update
+			exit_after_changes
 		fi
 		exit_quietly
 	elif [[ $REMOTE_VERSION == "$INSTALLED_VERSION" ]]; then
@@ -465,7 +451,7 @@ else
 		if ! check_required_os; then
 			update_caches
 			$SET_NVRAM
-			exit_after_update
+			exit_after_changes
 		fi
 		if $OPT_REINSTALL; then
 			REINSTALL_MESSAGE=true
@@ -511,7 +497,7 @@ if [[ $COMMAND != "CMD_FILE" ]]; then
 	/usr/bin/curl --connect-timeout 15 -# -o "$INSTALLER_PKG" "$REMOTE_URL" || e "Failed to download package" $?
 
 	# Checksum
-	LOCAL_CHECKSUM=$(sha512 "$INSTALLER_PKG")
+	LOCAL_CHECKSUM=$(/usr/bin/shasum -a 512 "$INSTALLER_PKG" 2> /dev/null | /usr/bin/awk '{print $1}')
 	if [[ $REMOTE_CHECKSUM ]]; then
 		if [[ $LOCAL_CHECKSUM == "$REMOTE_CHECKSUM" ]]; then
 			printf 'SHA512: Verified\n'
@@ -555,7 +541,7 @@ if $FS_ALLOWED; then
 	cd "$DRIVERS_ROOT" || e "Failed to find drivers root directory" $?
 	KEXT_INFO_PLISTS=(./Library/Extensions/*.kext/Contents/Info.plist)
 	for PLIST in "${KEXT_INFO_PLISTS[@]}"; do
-		BUNDLE_ID=$(plistb "Print :CFBundleIdentifier" "$PLIST") || e "$ERR_PLIST_READ"
+		BUNDLE_ID=$(plistb "Print :CFBundleIdentifier" "$PLIST")
 		[[ $BUNDLE_ID ]] && sql_add_kext "$BUNDLE_ID"
 	done
 	sql_add_kext "com.nvidia.CUDA"
