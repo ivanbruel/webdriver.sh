@@ -40,7 +40,6 @@ TMP_DIR=$(/usr/bin/mktemp -dt webdriver)
 UPDATES_PLIST="${TMP_DIR}/$(/usr/bin/uuidgen)"
 INSTALLER_PKG="${TMP_DIR}/$(/usr/bin/uuidgen)"
 EXTRACTED_PKG_DIR="${TMP_DIR}/$(/usr/bin/uuidgen)"
-SQL_QUERY_FILE="${TMP_DIR}/$(/usr/bin/uuidgen)"
 DRIVERS_PKG="${TMP_DIR}/com.nvidia.web-driver.pkg"
 DRIVERS_ROOT="${TMP_DIR}/$(/usr/bin/uuidgen)"
 DRIVERS_DIR_HINT="NVWebDrivers.pkg"
@@ -318,10 +317,10 @@ function installed_version() {
 
 function sql_add_kext() {
 	# sql_add_kext $1:bundle_id
-	printf 'insert or replace into kext_policy '
-	printf '(team_id, bundle_id, allowed, developer_name, flags) '
-	printf 'values (\"%s\",\"%s\",1,\"%s\",1);\n' "6KR3T733EC" "$1" "NVIDIA Corporation"
-} >> "$SQL_QUERY_FILE"
+	SQL+="insert or replace into kext_policy "
+	SQL+="(team_id, bundle_id, allowed, developer_name, flags) "
+	SQL+="values (\"6KR3T733EC\",\"${1}\",1,\"NVIDIA Corporation\",1); "
+}
 
 function match_build() {
 	# match_build $1:local $2:remote
@@ -560,7 +559,7 @@ if $FS_ALLOWED; then
 		[[ $BUNDLE_ID ]] && sql_add_kext "$BUNDLE_ID"
 	done
 	sql_add_kext "com.nvidia.CUDA"
-	/usr/bin/sqlite3 /private/var/db/SystemPolicyConfiguration/KextPolicy < "$SQL_QUERY_FILE" \
+	/usr/bin/sqlite3 /private/var/db/SystemPolicyConfiguration/KextPolicy <<< "$SQL" \
 		|| warning "sqlite3 exit code $?"
 fi
 
