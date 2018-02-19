@@ -24,7 +24,7 @@ Update to the latest release
 brew upgrade webdriver.sh
 ```
 
-## Example Usage
+# Example Usage
 
 <p align="center">
 <img src="https://raw.githubusercontent.com/vulgo/webdriver.sh/master/Images/egpu.svg?sanitize=true" alt="Macbook Pro Nvidia EGPU" width="50%">
@@ -84,11 +84,7 @@ webdriver -h
 
 Displays help, lists options
 
-## Configuration
-
-The current web drivers will be uninstalled when you install new drivers, you can remove additional files by editing \<homebrew prefix\>/etc/webdriver.sh/uninstall.conf
-
-## F.A.Q.
+## Frequently Asked Questions
 
 #### Is webdriver.sh compatible with regular, or other third-party methods of driver installation?
 
@@ -112,7 +108,7 @@ No, Nvidia's own installer runs a perl script that removes anything that was ins
 
 #### Can't I just uninstall the drivers using webdriver.sh?
 
-Yes, sudo webdriver -r
+Yes, ```webdriver -r```
 
 #### Does webdriver.sh install things to the wrong place?
 
