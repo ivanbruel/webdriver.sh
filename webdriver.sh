@@ -19,6 +19,7 @@
 
 SCRIPT_VERSION="1.2.4"
 BASENAME=$(/usr/bin/basename "$0")
+RAW_ARGS=($@)
 MACOS_PRODUCT_VERSION=$(/usr/bin/sw_vers -productVersion)
 if ! /usr/bin/grep -e "10.13" <<< "$MACOS_PRODUCT_VERSION" > /dev/null 2>&1; then
 	printf 'Unsupported macOS version'; exit 1; fi
@@ -138,7 +139,7 @@ if (( COMMAND_COUNT == 0 )); then
 	done
 fi
 
-[[ $(/usr/bin/id -u) != "0" ]] && exec /usr/bin/sudo -u root "$0" "$@"
+[[ $(/usr/bin/id -u) != "0" ]] && exec /usr/bin/sudo -u root "$0" "${RAW_ARGS[@]}"
 
 function s() {
 	# s $@: args... 
