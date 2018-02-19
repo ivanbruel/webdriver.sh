@@ -516,7 +516,7 @@ if [[ $COMMAND != "CMD_FILE" ]]; then
 		printf 'SHA512: %s\n' "$LOCAL_CHECKSUM"
 	fi
 else
-	/bin/mv "$OPT_FILEPATH" "$DOWNLOADED_PKG"
+	/bin/cp "$OPT_FILEPATH" "$DOWNLOADED_PKG"
 fi
 
 # Unflatten
