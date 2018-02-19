@@ -570,7 +570,9 @@ uninstall_drivers
 declare CHANGES_MADE=true NEEDS_KEXTCACHE=false RESTART_REQUIRED=true
 if ! $FS_ALLOWED; then
 	s /usr/bin/pkgbuild --identifier com.nvidia.web-driver --root "$DRIVERS_ROOT" "$DRIVERS_PKG"
-	warning "Don't restart until this process has completed"
+	# macOS prompts to restart after Nvidia Corporation has been initially allowed, without
+	# rebuilding caches, which should be done AFTER team_id has been added to kext_policy
+	$KEXT_ALLOWED || warning "Don't restart until this process has completed"
 	printf '%bInstalling...%b\n' "$B" "$R"
 	s /usr/sbin/installer -allowUntrusted -pkg "$DRIVERS_PKG" -target / || e "installer error" $?
 else
@@ -585,8 +587,6 @@ etc "/etc/webdriver.sh/post-install.conf" "$DRIVERS_ROOT"
 
 s /sbin/kextload "$STARTUP_KEXT" # kextload returns 27 when a kext hasn't been approved yet
 if [[ $? -eq 27 ]]; then
-	# macOS prompts to restart after Nvidia Corporation has been allowed, without rebuilding
-	# caches - which needs to be done (again) after the extensions have been approved.
 	s /usr/bin/osascript -e "beep"
 	printf 'Allow NVIDIA Corporation in security preferences to continue...\n'
 	NEEDS_KEXTCACHE=true
