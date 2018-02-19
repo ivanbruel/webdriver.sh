@@ -586,16 +586,12 @@ etc "/etc/webdriver.sh/post-install.conf" "$DRIVERS_ROOT"
 s /sbin/kextload "$STARTUP_KEXT" # kextload returns 27 when a kext hasn't been approved yet
 if [[ $? -eq 27 ]]; then
 	# macOS prompts to restart after Nvidia Corporation has been allowed, without rebuilding
-	# caches - which needs to be done (again) AFTER the extensions have been approved.
+	# caches - which needs to be done (again) after the extensions have been approved.
 	s /usr/bin/osascript -e "beep"
 	printf 'Allow NVIDIA Corporation in security preferences to continue...\n'
 	NEEDS_KEXTCACHE=true
-	# This Apple script is from the Nvidia installer...
-	REVEAL='tell app "System Preferences" to reveal anchor "General"'
-	REVEAL+=' of pane id "com.apple.preference.security"'
-	ACTIVATE='tell app "System Preferences" to activate'
 	while ! s /usr/bin/kextutil -tn "$STARTUP_KEXT"; do
-		s /usr/bin/osascript -e "$REVEAL" -e "$ACTIVATE"
+		s /usr/bin/osascript "${BREW_PREFIX}/etc/webdriver.sh/open-security-preferences.scpt"
 		sleep 5
 	done
 fi
