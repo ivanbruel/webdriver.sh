@@ -38,7 +38,7 @@ CSR_STATUS=$(/usr/bin/csrutil status)
 declare R='\e[0m' B='\e[1m' U='\e[4m'
 TMP_DIR=$(/usr/bin/mktemp -dt webdriver)
 UPDATES_PLIST="${TMP_DIR}/$(/usr/bin/uuidgen)"
-DOWNLOADED_PKG="${TMP_DIR}/$(/usr/bin/uuidgen)"
+INSTALLER_PKG="${TMP_DIR}/$(/usr/bin/uuidgen)"
 EXTRACTED_PKG_DIR="${TMP_DIR}/$(/usr/bin/uuidgen)"
 SQL_QUERY_FILE="${TMP_DIR}/$(/usr/bin/uuidgen)"
 DRIVERS_PKG="${TMP_DIR}/com.nvidia.web-driver.pkg"
@@ -503,10 +503,10 @@ if [[ $COMMAND != "CMD_FILE" ]]; then
 
 	# Download
 	printf '%bDownloading package...%b\n' "$B" "$R"
-	/usr/bin/curl --connect-timeout 15 -# -o "$DOWNLOADED_PKG" "$REMOTE_URL" || e "Failed to download package" $?
+	/usr/bin/curl --connect-timeout 15 -# -o "$INSTALLER_PKG" "$REMOTE_URL" || e "Failed to download package" $?
 
 	# Checksum
-	LOCAL_CHECKSUM=$(sha512 "$DOWNLOADED_PKG")
+	LOCAL_CHECKSUM=$(sha512 "$INSTALLER_PKG")
 	if [[ $REMOTE_CHECKSUM ]]; then
 		if [[ $LOCAL_CHECKSUM == "$REMOTE_CHECKSUM" ]]; then
 			printf 'SHA512: Verified\n'
@@ -517,13 +517,13 @@ if [[ $COMMAND != "CMD_FILE" ]]; then
 		printf 'SHA512: %s\n' "$LOCAL_CHECKSUM"
 	fi
 else
-	/bin/cp "$OPT_FILEPATH" "$DOWNLOADED_PKG"
+	/bin/cp "$OPT_FILEPATH" "$INSTALLER_PKG"
 fi
 
 # Unflatten
 
 printf '%bExtracting...%b\n' "$B" "$R"
-/usr/sbin/pkgutil --expand "$DOWNLOADED_PKG" "$EXTRACTED_PKG_DIR" || e "Failed to extract package" $?
+/usr/sbin/pkgutil --expand "$INSTALLER_PKG" "$EXTRACTED_PKG_DIR" || e "Failed to extract package" $?
 DIRS=("$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT")
 # shellcheck disable=SC2076,SC2049
 if [[ ${#DIRS[@]} == 1 ]] && [[ ! ${DIRS[0]} =~ "*" ]]; then
