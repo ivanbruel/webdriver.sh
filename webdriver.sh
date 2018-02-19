@@ -89,6 +89,7 @@ while getopts ":hvlu:rm:fa" OPTION; do
 		exit 0;;
 	"l")
 		COMMAND="CMD_LIST"
+		OPT_REINSTALL=true
 		COMMAND_COUNT+=1;;
 	"u")
 		COMMAND="CMD_USER_URL"
@@ -156,17 +157,23 @@ function e() {
 		printf '%bError%b: %s (%s)\n' "$U" "$R" "$1" "$2"
 	fi
 	$CHANGES_MADE && $UNSET_NVRAM
-	! $CHANGES_MADE  && printf 'No changes were made\n'
+	! $CHANGES_MADE && printf 'No changes were made\n'
 	exit 1
 }
 
-function exit_ok() {
+function exit_quietly() {
 	s rm -rf "$TMP_DIR"
-	exit 0
+	exit $EXIT_ERROR
+}
+
+function exit_after_update() {
+	s rm -rf "$TMP_DIR"
+	[[ $EXIT_ERROR -eq 0 ]] && printf 'Complete.\n'
+	exit $EXIT_ERROR
 }
 
 function exit_after_install() {
-	printf 'Complete.'
+	printf 'Installation complete.'
 	$RESTART_REQUIRED && printf ' You should reboot now.'
 	printf '\n'
 	s rm -rf "$TMP_DIR"
@@ -345,8 +352,7 @@ if [[ $COMMAND == "CMD_REQUIRED_OS" ]]; then
 	else
 		$UNSET_NVRAM
 	fi
-	s rm -rf "$TMP_DIR"
-	exit $EXIT_ERROR
+	exit_after_update
 fi
 
 # COMMAND CMD_UNINSTALL
@@ -431,7 +437,7 @@ else
 			printf '\n'
 			printf '%bWhat now?%b [1-%s] : ' "$B" "$R" "$count"
 			read -r int
-			[[ -z $int ]] && exit_ok
+			[[ -z $int ]] && exit_quietly
 			if [[ $int =~ ^[0-9] ]] && (( int >= 1 )) && (( int <= count )); then
 				(( int -= 1 ))
 				REMOTE_URL=${LIST_URLS[$int]}
@@ -448,25 +454,25 @@ else
 	if [[ -z $REMOTE_URL || -z $REMOTE_VERSION ]]; then
 		# No driver available, or error during check, exit
 		printf 'No driver available for %s\n' "$LOCAL_BUILD"
-		check_required_os
-		if $CHANGES_MADE; then
+		if ! check_required_os; then
 			update_caches
 			$SET_NVRAM
+			exit_after_update
 		fi
-		exit_ok
+		exit_quietly
 	elif [[ $REMOTE_VERSION == "$INSTALLED_VERSION" ]]; then
 		# Latest already installed, exit
 		printf '%s for %s already installed\n' "$REMOTE_VERSION" "$LOCAL_BUILD"
-		if ! $OPT_REINSTALL; then
-			# printf 'To re-install use -f\n' "$BASENAME"
-			check_required_os
-			if $CHANGES_MADE; then
-				update_caches
-				$SET_NVRAM
-			fi
-			exit_ok
+		if ! check_required_os; then
+			update_caches
+			$SET_NVRAM
+			exit_after_update
 		fi
-		REINSTALL_MESSAGE=true
+		if $OPT_REINSTALL; then
+			REINSTALL_MESSAGE=true
+		else
+			exit_quietly
+		fi
 	else
 		if [[ $COMMAND != "CMD_LIST" ]]; then
 			# Found an update, proceed to installation
@@ -482,9 +488,9 @@ fi
 
 if ! $OPT_SYSTEM; then
 	if $REINSTALL_MESSAGE; then
-		ask "Re-install?" || exit_ok
+		ask "Re-install?" || exit_quietly
 	else
-		ask "Install?" || exit_ok
+		ask "Install?" || exit_quietly
 	fi
 fi
 
@@ -610,5 +616,6 @@ if $OPT_SYSTEM; then
 	s rm -rf "$TMP_DIR"
 	printf '%bSystem update...%b\n' "$B" "$R"
 	s /usr/sbin/softwareupdate -ir
+	exit_quietly
 fi
 exit_after_install
