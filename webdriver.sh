@@ -581,16 +581,12 @@ else
 fi
 etc "/etc/webdriver.sh/post-install.conf" "$DRIVERS_ROOT"
 
-# Check extensions are loadable only if SIP is enabled
+# Check extensions are loadable
 
-# If invalid kexts are allowed the security prompt won't show up - in that
-# case the extensions will likely load (for so long as SIP remains disabled)
-# Also if file system access is allowed we should have already 'approved' the
-# extensions directly, so don't test loadability if either of these are true
-if ! $FS_ALLOWED && ! $KEXT_ALLOWED && ! s /usr/bin/kextutil -tn "$STARTUP_KEXT"; then
-	# macOS prompts to open the relevant settings... and then prompts to restart
-	# without rebuilding caches, which needs to be done (again) once the extensions
-	# have been approved. Restart too soon and the extensions won't be included.
+s /sbin/kextload "$STARTUP_KEXT" # kextload returns 27 when a kext hasn't been approved yet
+if [[ $? -eq 27 ]]; then
+	# macOS prompts to restart after Nvidia Corporation has been allowed, without rebuilding
+	# caches - which needs to be done (again) AFTER the extensions have been approved.
 	s /usr/bin/osascript -e "beep"
 	printf 'Allow NVIDIA Corporation in security preferences to continue...\n'
 	NEEDS_KEXTCACHE=true
