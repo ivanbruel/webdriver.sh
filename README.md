@@ -26,6 +26,10 @@ brew upgrade webdriver.sh
 
 ## Example Usage
 
+<p align="center">
+<img src="https://raw.githubusercontent.com/vulgo/webdriver.sh/master/Images/egpu.svg?sanitize=true" alt="Macbook Pro Nvidia EGPU" width="50%">
+</p>
+
 #### Install or update drivers
 
 ```
@@ -54,7 +58,7 @@ Installs the drivers from the package located at FILE.
 sudo webdriver -u URL
 ```
 
-Downloads and installs the drivers from the package at URL. There is a nice list of available drivers/URLs maintained [here](http://www.macvidcards.com/drivers.html)
+Downloads the package at URL and install the drivers inside. There is a nice list of available URLs maintained [here](http://www.macvidcards.com/drivers.html)
 
 #### Uninstall
 
@@ -93,6 +97,10 @@ Yes, you can use webdriver.sh before or after using any other method of driver i
 #### Does webdriver.sh install the Nvidia preference pane?
 
 No, you can install it at any point via Nvidia's installer package - webdriver.sh works fine alongside it or without it.
+
+#### Do I need to disable SIP?
+
+No, but you'll want to if you are modifying the drivers - making changes to a kext's Info.plist excludes it from the prelinked kernel the next time the caches are rebuilt.
 
 #### Will webdriver.sh mess with Nvidia's installer or 'repackage' the driver?
 
