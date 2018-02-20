@@ -589,7 +589,7 @@ else
 	cp -r "${DRIVERS_ROOT}"/System/Library/Extensions/* /System/Library/Extensions
 	NEEDS_KEXTCACHE=true
 fi
-etc "/etc/webdriver.sh/post-install.conf" "$DRIVERS_ROOT" "$KEXT_ALLOWED"
+etc "/etc/webdriver.sh/post-install.conf"
 
 # Check extensions are loadable
 
