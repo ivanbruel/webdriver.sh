@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.2.8"
+SCRIPT_VERSION="1.2.9"
 BASENAME=$(/usr/bin/basename "$0")
 RAW_ARGS=("$@")
 MACOS_PRODUCT_VERSION=$(/usr/bin/sw_vers -productVersion)
