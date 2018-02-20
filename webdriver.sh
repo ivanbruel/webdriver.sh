@@ -19,7 +19,7 @@
 
 SCRIPT_VERSION="1.2.4"
 BASENAME=$(/usr/bin/basename "$0")
-RAW_ARGS=($@)
+RAW_ARGS=("$@")
 MACOS_PRODUCT_VERSION=$(/usr/bin/sw_vers -productVersion)
 if ! /usr/bin/grep -e "10.13" <<< "$MACOS_PRODUCT_VERSION" > /dev/null 2>&1; then
 	printf 'Unsupported macOS version'; exit 1; fi
