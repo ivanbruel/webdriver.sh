@@ -354,6 +354,8 @@ fi
 
 # UPDATER/INSTALLER
 
+etc "/etc/webdriver.sh/settings.conf"
+
 if [[ $COMMAND == "CMD_USER_URL" ]]; then
 	# Invoked with -u option, proceed to installation
 	printf 'URL: %s\n' "$REMOTE_URL"
