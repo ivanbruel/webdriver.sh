@@ -9,6 +9,8 @@
 
 Bash script for managing Nvidia's web drivers on macOS High Sierra.
 
+<br/>
+
 ## Install
 
 Installing webdriver.sh is easy with [Homebrew](https://brew.sh)
@@ -24,13 +26,15 @@ Update to the latest release
 brew upgrade webdriver.sh
 ```
 
+<br/>
+
 # Example Usage
 
 <p align="center">
 <img src="https://raw.githubusercontent.com/vulgo/webdriver.sh/master/Images/egpu.svg?sanitize=true" alt="Macbook Pro Nvidia EGPU" width="50%">
 </p>
 
-#### Install or update drivers
+## Install the latest drivers
 
 ```
 sudo webdriver
@@ -38,7 +42,9 @@ sudo webdriver
 
 Installs/updates to the latest available Nvidia web drivers for your current version of macOS.
 
-#### Choose from a list of drivers
+<br/>
+
+## Choose from a list of drivers
 
 ```
 sudo webdriver -l
@@ -46,13 +52,15 @@ sudo webdriver -l
 
 Displays a list of driver versions, choose one to download and install it.
 
-#### Install a specific driver version
+<br />
+
+#### Install from local package or URL
 
 ```
 sudo webdriver FILE
 ```
 
-Installs the drivers from a package on the local filesystem.
+Installs the drivers from package FILE on the local filesystem.
 
 ```
 sudo webdriver -u URL
@@ -60,13 +68,17 @@ sudo webdriver -u URL
 
 Downloads the package at URL and install the drivers inside. There is a nice list of available URLs maintained [here](http://www.macvidcards.com/drivers.html).
 
-#### Uninstall
+<br />
+
+#### Uninstall drivers
 
 ```
 sudo webdriver -r
 ```
 
 Removes Nvidia's web drivers from your system.
+
+<br />
 
 #### Patch drivers to load on a different version of macOS
 
@@ -76,6 +88,8 @@ sudo webdriver -m [BUILD]
 
 Modifies the installed driver's NVDARequiredOS. If no [BUILD] is provided for option -m, the installed macOS's build version string will be used.
 
+<br />
+
 #### Show help
 
 ```
@@ -83,6 +97,9 @@ webdriver -h
 ```
 
 Displays help, lists options
+
+<br />
+<br />
 
 ## Frequently Asked Questions
 
@@ -114,6 +131,10 @@ Yes, ```webdriver -r```
 
 No.
 
+<br />
+
 ## License
 
 webdriver.sh is free software licensed under the terms of the GPL version 3 or later.
+
+<br />
