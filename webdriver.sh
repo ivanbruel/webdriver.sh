@@ -284,7 +284,6 @@ function set_required_os() {
 }
 
 function check_required_os() {
-	echo $DONT_INVALIDATE_KEXTS
 	if $OPT_SYSTEM || [[ $DONT_INVALIDATE_KEXTS -eq 1 ]]; then
 		return 0; fi
 	local RESULT
