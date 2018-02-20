@@ -401,6 +401,12 @@ else
 	done;
 	if [[ $COMMAND == "CMD_LIST" ]]; then
 		while true; do
+			printf '%bCurrent driver:%b ' "$B" "$R"
+			if [[ $INSTALLED_VERSION ]]; then
+				printf '%s\n' "$INSTALLED_VERSION"
+			else
+				printf 'Not installed\n'
+			fi
 			printf '%bRunning on:%b macOS %s (%s)\n\n' "$B" "$R" "$MACOS_PRODUCT_VERSION" "$LOCAL_BUILD"
 			count=${#LIST_VERSIONS[@]}
 			FORMAT_COMMAND="/usr/bin/tee"

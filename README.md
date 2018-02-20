@@ -44,7 +44,7 @@ Installs/updates to the latest available Nvidia web drivers for your current ver
 sudo webdriver -l
 ```
 
-Displays a list of driver versions, choose one to download and install it
+Displays a list of driver versions, choose one to download and install it.
 
 #### Install a specific driver version
 
@@ -52,13 +52,13 @@ Displays a list of driver versions, choose one to download and install it
 sudo webdriver FILE
 ```
 
-Installs the drivers from the package located at FILE.
+Installs the drivers from a package on the local filesystem.
 
 ```
 sudo webdriver -u URL
 ```
 
-Downloads the package at URL and install the drivers inside. There is a nice list of available URLs maintained [here](http://www.macvidcards.com/drivers.html)
+Downloads the package at URL and install the drivers inside. There is a nice list of available URLs maintained [here](http://www.macvidcards.com/drivers.html).
 
 #### Uninstall
 
@@ -92,7 +92,7 @@ Yes, you can use webdriver.sh before or after using any other method of driver i
 
 #### Does webdriver.sh install the Nvidia preference pane?
 
-No, you can install it at any point via Nvidia's installer package - webdriver.sh works fine alongside it or without it.
+No, you can install it at any point via Nvidia's installer package - webdriver.sh works fine with or without it.
 
 #### Do I need to disable SIP?
 
@@ -116,4 +116,4 @@ No.
 
 ## License
 
-webdriver.sh is free software licensed under the terms of the GPL version 3 or later
+webdriver.sh is free software licensed under the terms of the GPL version 3 or later.
