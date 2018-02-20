@@ -185,11 +185,11 @@ function warning() {
 }
 
 function etc() {
-	# exec_conf $1: path_to_script $2: arg_1
+	# exec_conf $1: path_to_script $2: arg_1 $3 arg_2
 	if [[ -f "${BREW_PREFIX}${1}" ]]; then
-		"${BREW_PREFIX}${1}" "$2"
+		. "${BREW_PREFIX}${1}" "$2" "$3"
 	elif [[ -f "${HOST_PREFIX}${1}" ]]; then
-		"${HOST_PREFIX}${1}" "$2"
+		. "${HOST_PREFIX}${1}" "$2" "$3"
 	fi
 }
 
@@ -284,7 +284,9 @@ function set_required_os() {
 }
 
 function check_required_os() {
-	$OPT_SYSTEM && return 0
+	echo $DONT_INVALIDATE_KEXTS
+	if $OPT_SYSTEM || [[ $DONT_INVALIDATE_KEXTS -eq 1 ]]; then
+		return 0; fi
 	local RESULT
 	local KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
 	if [[ -f ${STARTUP_KEXT}/Contents/Info.plist ]]; then
@@ -572,7 +574,7 @@ else
 	cp -r "${DRIVERS_ROOT}"/System/Library/Extensions/* /System/Library/Extensions
 	NEEDS_KEXTCACHE=true
 fi
-etc "/etc/webdriver.sh/post-install.conf" "$DRIVERS_ROOT"
+etc "/etc/webdriver.sh/post-install.conf" "$DRIVERS_ROOT" "$KEXT_ALLOWED"
 
 # Check extensions are loadable
 
