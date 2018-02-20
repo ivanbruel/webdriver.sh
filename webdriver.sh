@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.2.5"
+SCRIPT_VERSION="1.2.6"
 BASENAME=$(/usr/bin/basename "$0")
 RAW_ARGS=("$@")
 MACOS_PRODUCT_VERSION=$(/usr/bin/sw_vers -productVersion)
@@ -63,7 +63,7 @@ if [[ $BASENAME =~ "swebdriver" ]]; then
 fi
 
 function usage() {
-	printf 'Usage: %s [-f] [-l|-u|-r|-m] [FILE]\n' "$BASENAME"
+	printf 'Usage: %s [-f] [-l|-u|-r|-m|FILE]\n' "$BASENAME"
 	printf '    -l            choose which driver to install from a list\n'
 	printf '    -u URL        install driver package at URL, no version checks\n'
 	printf '    -r            uninstall drivers\n'
