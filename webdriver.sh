@@ -18,6 +18,7 @@
 #
 
 SCRIPT_VERSION="1.2.10"
+shopt -s nullglob
 BASENAME=$(/usr/bin/basename "$0")
 RAW_ARGS=("$@")
 MACOS_PRODUCT_VERSION=$(/usr/bin/sw_vers -productVersion)
@@ -208,15 +209,14 @@ function scpt() {
 }
 
 function uninstall_drivers() {
-	local REMOVE_LIST="/Library/Extensions/GeForce* \
+	local REMOVE_LIST=(/Library/Extensions/GeForce* \
 		/Library/Extensions/NVDA* \
 		/System/Library/Extensions/GeForce*Web* \
-		/System/Library/Extensions/NVDA*Web*"
-	s mv "$EGPU_KEXT" "~$EGPU_KEXT"
+		/System/Library/Extensions/NVDA*Web*)
+	REMOVE_LIST=("${REMOVE_LIST[@]/$EGPU_KEXT}")
 	# shellcheck disable=SC2086
-	s rm -rf $REMOVE_LIST
+	s rm -rf "${REMOVE_LIST[@]}"
 	s pkgutil --forget com.nvidia.web-driver
-	s mv "~$EGPU_KEXT" "$EGPU_KEXT"
 	etc "/etc/webdriver.sh/uninstall.conf"
 }
 
@@ -345,7 +345,7 @@ if [[ $COMMAND == "CMD_REQUIRED_OS" ]]; then
 	else
 		printf 'No changes were made\n'
 	fi
-	if [[ $EXIT_ERROR == 0 ]]; then
+	if [[ $EXIT_ERROR -eq 0 ]]; then
 		$SET_NVRAM
 	else
 		$UNSET_NVRAM
@@ -539,8 +539,7 @@ fi
 printf '%bExtracting...%b\n' "$B" "$R"
 /usr/sbin/pkgutil --expand "$INSTALLER_PKG" "$EXTRACTED_PKG_DIR" || e "Failed to extract package" $?
 DIRS=("$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT")
-# shellcheck disable=SC2076,SC2049
-if [[ ${#DIRS[@]} == 1 ]] && [[ ! ${DIRS[0]} =~ "*" ]]; then
+if [[ ${#DIRS[@]} -eq 1 ]] && [[ -d ${DIRS[0]} ]]; then
         DRIVERS_COMPONENT_DIR=${DIRS[0]}
 else
         e "Failed to find pkgutil output directory"
