@@ -105,7 +105,8 @@ while getopts ":hvlu:rm:fa!:" OPTION; do
 		OPT_REINSTALL=true;;
 	"a")
 		OPT_ALL=true;;
-	"!")	
+	"!")
+		# shellcheck disable=SC2034
 		CONFIG_ARGS="$OPTARG";;
 	"?")
 		printf 'Invalid option: -%s\n' "$OPTARG"
@@ -189,8 +190,10 @@ function warning() {
 function etc() {
 	# etc $1: path_to_script
 	if [[ -f "${BREW_PREFIX}${1}" ]]; then
+		# shellcheck source=/dev/null
 		source "${BREW_PREFIX}${1}"
 	elif [[ -f "${HOST_PREFIX}${1}" ]]; then
+		# shellcheck source=/dev/null
 		source "${HOST_PREFIX}${1}"
 	fi
 }
