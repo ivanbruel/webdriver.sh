@@ -78,7 +78,7 @@ function version() {
 	printf 'See the GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n'
 }
 
-while getopts ":hvlu:rm:fa" OPTION; do
+while getopts ":hvlu:rm:fa!:" OPTION; do
 	case $OPTION in
 	"h")
 		usage
@@ -105,6 +105,8 @@ while getopts ":hvlu:rm:fa" OPTION; do
 		OPT_REINSTALL=true;;
 	"a")
 		OPT_ALL=true;;
+	"!")	
+		CONFIG_ARGS="$OPTARG";;
 	"?")
 		printf 'Invalid option: -%s\n' "$OPTARG"
 		usage
@@ -185,11 +187,20 @@ function warning() {
 }
 
 function etc() {
-	# exec_conf $1: path_to_script $2: arg_1 $3 arg_2
+	# etc $1: path_to_script
 	if [[ -f "${BREW_PREFIX}${1}" ]]; then
-		. "${BREW_PREFIX}${1}" "$2" "$3"
+		source "${BREW_PREFIX}${1}"
 	elif [[ -f "${HOST_PREFIX}${1}" ]]; then
-		. "${HOST_PREFIX}${1}" "$2" "$3"
+		source "${HOST_PREFIX}${1}"
+	fi
+}
+
+function scpt() {
+	# scpt $1: path_to_script
+	if [[ -f "${BREW_PREFIX}${1}" ]]; then
+		/usr/bin/osascript "${BREW_PREFIX}${1}" > /dev/null 2>&1
+	elif [[ -f "${HOST_PREFIX}${1}" ]]; then
+		/usr/bin/osascript  "${HOST_PREFIX}${1}" > /dev/null 2>&1
 	fi
 }
 
@@ -585,7 +596,7 @@ if [[ $? -eq 27 ]]; then
 	printf 'Allow NVIDIA Corporation in security preferences to continue...\n'
 	NEEDS_KEXTCACHE=true
 	while ! s /usr/bin/kextutil -tn "$STARTUP_KEXT"; do
-		s /usr/bin/osascript "${BREW_PREFIX}/etc/webdriver.sh/open-security-preferences.scpt"
+		scpt "/etc/webdriver.sh/open-security-preferences.scpt"
 		sleep 5
 	done
 fi
