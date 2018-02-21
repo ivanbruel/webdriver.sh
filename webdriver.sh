@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.2.11"
+SCRIPT_VERSION="1.2.12"
 shopt -s nullglob
 BASENAME=$(/usr/bin/basename "$0")
 RAW_ARGS=("$@")
@@ -623,6 +623,6 @@ if $OPT_SYSTEM; then
 	s rm -rf "$TMP_DIR"
 	printf '%bSystem update...%b\n' "$B" "$R"
 	RESULT=$(/usr/sbin/softwareupdate -ir 2>&1)
-	grep -iE -e "no updates|restart" <<< "$RESULT | tail -1
+	grep -iE -e "no updates|restart" <<< "$RESULT" | tail -1
 fi
 exit_after_install
