@@ -26,7 +26,7 @@ if ! /usr/bin/grep -e "10.13" <<< "$MACOS_PRODUCT_VERSION" > /dev/null 2>&1; the
 	printf 'Unsupported macOS version'; exit 1; fi
 if ! LOCAL_BUILD=$(/usr/bin/sw_vers -buildVersion); then
 	printf 'sw_vers error'; exit $?; fi
-(bdmesg | grep 'NVDARequiredOS' | grep -i 'allowed' > /dev/null 2>&1) && CLOVER_PATCH=1
+(bdmesg | grep 'NVDAStartupWeb' | grep -i 'allowed' > /dev/null 2>&1) && CLOVER_PATCH=1
 	
 # SIP
 declare KEXT_ALLOWED=false FS_ALLOWED=false
@@ -334,27 +334,24 @@ function match_build() {
 # COMMAND CMD_REQUIRED_OS
 
 if [[ $COMMAND == "CMD_REQUIRED_OS" ]]; then
-	EXIT_ERROR=0
 	if [[ ! -f "${STARTUP_KEXT}/Contents/Info.plist" ]]; then
 		printf 'Nvidia driver not found\n'
-		EXIT_ERROR=1
+		$UNSET_NVRAM
+		exit_quietly
 	else
 		if [[ $CLOVER_PATCH -eq 1 ]]; then
 			warning 'NVDAStartupWeb is already being patched by Clover'
-			ask 'Continue?' || exit_quietly; fi
+			ask 'Continue?' || exit_quietly
+		fi
 		set_required_os "$OPT_REQUIRED_OS"
 	fi
 	if $CHANGES_MADE; then
 		update_caches
-	else
-		printf 'No changes were made\n'
-	fi
-	if [[ $EXIT_ERROR -eq 0 ]]; then
 		$SET_NVRAM
+		exit_after_changes
 	else
-		$UNSET_NVRAM
+		exit_quietly
 	fi
-	exit_after_changes
 fi
 
 # COMMAND CMD_UNINSTALL
