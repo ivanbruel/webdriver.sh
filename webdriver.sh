@@ -469,8 +469,16 @@ else
 		fi
 		exit_quietly
 	elif [[ $REMOTE_VERSION == "$INSTALLED_VERSION" ]]; then
-		# Latest already installed, exit
-		printf '%s for %s already installed\n' "$REMOTE_VERSION" "$LOCAL_BUILD"
+		# Chosen version already installed
+		if [[ -f ${STARTUP_KEXT}/Contents/Info.plist ]]; then
+			REQUIRED_OS_KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
+			LOCAL_REQUIRED_OS=$(plistb "Print $REQUIRED_OS_KEY" "${STARTUP_KEXT}/Contents/Info.plist"); fi
+		if [[ $LOCAL_REQUIRED_OS ]]; then
+			printf '%s for %s already installed\n' "$REMOTE_VERSION" "$LOCAL_REQUIRED_OS"
+		else
+			printf '%s already installed\n' "$REMOTE_VERSION"
+			OPT_REINSTALL=true
+		fi
 		if ! check_required_os; then
 			update_caches
 			$SET_NVRAM
@@ -615,6 +623,6 @@ if $OPT_SYSTEM; then
 	s rm -rf "$TMP_DIR"
 	printf '%bSystem update...%b\n' "$B" "$R"
 	RESULT=$(/usr/sbin/softwareupdate -ir 2>&1)
-	grep -iE -e "no updates|restart" <<< $RESULT | tail -1
+	grep -iE -e "no updates|restart" <<< "$RESULT | tail -1
 fi
 exit_after_install
