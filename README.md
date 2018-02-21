@@ -113,7 +113,7 @@ No, you can install it at any point via Nvidia's installer package - webdriver.s
 
 #### Do I need to disable SIP?
 
-No, but you'll want to if you are modifying the drivers - making changes to a kext's Info.plist excludes it from the prelinked kernel the next time it's built. See also: [WebDriverStartup](https://github.com/vulgo/WebDriverStartup).
+No, but you'll want to if you are modifying the drivers to load - making changes to a kext's Info.plist excludes it from the prelinked kernel the next time it's built. Clover users can try [this kext patch](https://github.com/vulgo/webdriver.sh/blob/master/etc/clover-patch.plist) instead. See also: [WebDriverStartup](https://github.com/vulgo/WebDriverStartup).
 
 #### Will webdriver.sh mess with Nvidia's installer or 'repackage' the driver?
 
