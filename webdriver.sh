@@ -614,7 +614,7 @@ $SET_NVRAM
 if $OPT_SYSTEM; then
 	s rm -rf "$TMP_DIR"
 	printf '%bSystem update...%b\n' "$B" "$R"
-	s /usr/sbin/softwareupdate -ir
-	exit_quietly
+	RESULT=$(/usr/sbin/softwareupdate -ir 2>&1)
+	grep -iE -e "no updates|restart" <<< $RESULT | tail -1
 fi
 exit_after_install
