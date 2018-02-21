@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.2.12"
+SCRIPT_VERSION="1.2.13"
 shopt -s nullglob
 BASENAME=$(/usr/bin/basename "$0")
 RAW_ARGS=("$@")
@@ -26,6 +26,7 @@ if ! /usr/bin/grep -e "10.13" <<< "$MACOS_PRODUCT_VERSION" > /dev/null 2>&1; the
 	printf 'Unsupported macOS version'; exit 1; fi
 if ! LOCAL_BUILD=$(/usr/bin/sw_vers -buildVersion); then
 	printf 'sw_vers error'; exit $?; fi
+(bdmesg | grep 'NVDARequiredOS' | grep -i 'allowed' > /dev/null 2>&1) && CLOVER_PATCH=1
 	
 # SIP
 declare KEXT_ALLOWED=false FS_ALLOWED=false
@@ -298,7 +299,7 @@ function set_required_os() {
 }
 
 function check_required_os() {
-	if $OPT_SYSTEM || [[ $DONT_INVALIDATE_KEXTS -eq 1 ]]; then
+	if $OPT_SYSTEM || [[ $DONT_INVALIDATE_KEXTS -eq 1 ]] || [[ $CLOVER_PATCH -eq 1 ]]; then
 		return 0; fi
 	local RESULT
 	local KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
@@ -338,6 +339,9 @@ if [[ $COMMAND == "CMD_REQUIRED_OS" ]]; then
 		printf 'Nvidia driver not found\n'
 		EXIT_ERROR=1
 	else
+		if [[ $CLOVER_PATCH -eq 1 ]]; then
+			warning 'NVDAStartupWeb is already being patched by Clover'
+			ask 'Continue?' || exit_quietly; fi
 		set_required_os "$OPT_REQUIRED_OS"
 	fi
 	if $CHANGES_MADE; then
@@ -365,9 +369,11 @@ if [[ $COMMAND == "CMD_UNINSTALL" ]]; then
 	exit_after_install
 fi
 
-# UPDATER/INSTALLER
+# Load settings
 
 etc "/etc/webdriver.sh/settings.conf"
+
+# UPDATER/INSTALLER
 
 if [[ $COMMAND == "CMD_USER_URL" ]]; then
 	# Invoked with -u option, proceed to installation
