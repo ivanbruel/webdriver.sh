@@ -26,7 +26,7 @@ if ! /usr/bin/grep -e "10.13" <<< "$MACOS_PRODUCT_VERSION" > /dev/null 2>&1; the
 	printf 'Unsupported macOS version'; exit 1; fi
 if ! LOCAL_BUILD=$(/usr/bin/sw_vers -buildVersion); then
 	printf 'sw_vers error'; exit $?; fi
-(bdmesg | grep 'NVDAStartupWeb' | grep -i 'allowed' > /dev/null 2>&1) && CLOVER_PATCH=1
+(bdmesg | /usr/bin/grep -iE -e 'NVDAStartupWeb.*allowed' > /dev/null 2>&1) && CLOVER_PATCH=1
 	
 # SIP
 declare KEXT_ALLOWED=false FS_ALLOWED=false
@@ -626,6 +626,6 @@ if $OPT_SYSTEM; then
 	s rm -rf "$TMP_DIR"
 	printf '%bSystem update...%b\n' "$B" "$R"
 	RESULT=$(/usr/sbin/softwareupdate -ir 2>&1)
-	grep -iE -e "no updates|restart" <<< "$RESULT" | tail -1
+	/usr/bin/grep -iE -e "no updates|restart" <<< "$RESULT" | /usr/bin/tail -1
 fi
 exit_after_install
