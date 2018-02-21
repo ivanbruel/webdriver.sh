@@ -66,7 +66,7 @@ Installs the drivers from package FILE on the local filesystem.
 sudo webdriver -u URL
 ```
 
-Downloads the package at URL and install the drivers inside. There is a nice list of available URLs maintained [here](http://www.macvidcards.com/drivers.html).
+Downloads the package at URL and installs the drivers within. There is a nice list of available URLs maintained [here](http://www.macvidcards.com/drivers.html).
 
 <br />
 
