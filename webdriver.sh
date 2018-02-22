@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.2.14"
+SCRIPT_VERSION="1.2.15"
 shopt -s nullglob
 BASENAME=$(/usr/bin/basename "$0")
 RAW_ARGS=("$@")
@@ -143,7 +143,7 @@ INSTALLER_PKG="${TMP_DIR}/$(/usr/bin/uuidgen)"
 EXTRACTED_PKG_DIR="${TMP_DIR}/$(/usr/bin/uuidgen)"
 DRIVERS_PKG="${TMP_DIR}/com.nvidia.web-driver.pkg"
 DRIVERS_ROOT="${TMP_DIR}/$(/usr/bin/uuidgen)"
-if ls -la "$0" | grep -qi cellar && HOST_PREFIX=$(brew --prefix 2> /dev/null); then
+if /bin/ls -la "$0" | /usr/bin/grep -qi cellar && HOST_PREFIX=$(brew --prefix 2> /dev/null); then
 	true
 else
 	HOST_PREFIX=/usr/local
@@ -593,8 +593,7 @@ if ! $FS_ALLOWED; then
 	s /usr/sbin/installer -allowUntrusted -pkg "$DRIVERS_PKG" -target / || e "installer error" $?
 else
 	printf '%bInstalling...%b\n' "$B" "$R"
-	cp -r "${DRIVERS_ROOT}"/Library/Extensions/* /Library/Extensions
-	cp -r "${DRIVERS_ROOT}"/System/Library/Extensions/* /System/Library/Extensions
+	/usr/bin/rsync -r "${DRIVERS_ROOT}"/* /
 	NEEDS_KEXTCACHE=true
 fi
 etc "/etc/webdriver.sh/post-install.conf"
