@@ -566,21 +566,40 @@ s rm -f "${DRIVERS_ROOT}/tmp.cpio"
 if [[ ! -d ${DRIVERS_ROOT}/Library/Extensions || ! -d ${DRIVERS_ROOT}/System/Library/Extensions ]]; then
 	e "Unexpected directory structure after extraction"; fi
 
-# Make SQL and allow kexts
+# User-approved kernel extension loading
 
+cd "$DRIVERS_ROOT" || e "Failed to find drivers root directory" $?
+KEXT_INFO_PLISTS=(./Library/Extensions/*.kext/Contents/Info.plist)
+declare -a BUNDLES APPROVED
+for PLIST in "${KEXT_INFO_PLISTS[@]}"; do
+	BUNDLE_ID=$(plistb "Print :CFBundleIdentifier" "$PLIST")
+	[[ $BUNDLE_ID ]] && BUNDLES+=("$BUNDLE_ID")
+done
 if $FS_ALLOWED; then
+	# Approve kexts
 	printf '%bApproving kexts...%b\n' "$B" "$R"
-	cd "$DRIVERS_ROOT" || e "Failed to find drivers root directory" $?
-	KEXT_INFO_PLISTS=(./Library/Extensions/*.kext/Contents/Info.plist)
-	for PLIST in "${KEXT_INFO_PLISTS[@]}"; do
-		BUNDLE_ID=$(plistb "Print :CFBundleIdentifier" "$PLIST")
-		[[ $BUNDLE_ID ]] && sql_add_kext "$BUNDLE_ID"
+	for BUNDLE_ID in "${BUNDLES[@]}"; do
+		sql_add_kext "$BUNDLE_ID"
 	done
 	sql_add_kext "com.nvidia.CUDA"
 	/usr/bin/sqlite3 /private/var/db/SystemPolicyConfiguration/KextPolicy <<< "$SQL" \
 		|| warning "sqlite3 exit code $?"
+else
+	# Get unapproved bundle IDs
+	QUERY="select bundle_id from kext_policy where team_id=\"6KR3T733EC\" and (flags=1 or flags=8)"
+	while IFS= read -r LINE; do
+		APPROVED+=( "$LINE" )
+	done < <( /usr/bin/sqlite3 /private/var/db/SystemPolicyConfiguration/KextPolicy "$QUERY" 2> /dev/null )
+	for MATCH in "${APPROVED[@]}"; do
+		for index in "${!BUNDLES[@]}"; do
+			if [[ ${BUNDLES[index]} == "$MATCH" ]]; then
+				unset 'BUNDLES[index]';
+			fi;
+		done;
+	done
+	UNAPPROVED_BUNDLES=$(printf "%s" "${BUNDLES[@]}")
 fi
-
+		
 # Install
 
 uninstall_drivers
@@ -589,9 +608,10 @@ if ! $FS_ALLOWED; then
 	s /usr/bin/pkgbuild --identifier com.nvidia.web-driver --root "$DRIVERS_ROOT" "$DRIVERS_PKG"
 	# macOS prompts to restart after Nvidia Corporation has been initially allowed, without
 	# rebuilding caches, which should be done AFTER team_id has been added to kext_policy
-	$KEXT_ALLOWED || warning "Don't restart until this process has completed"
+	if ! $KEXT_ALLOWED && [[ ! -z $UNAPPROVED_BUNDLES ]]; then
+		warning "Don't restart until this process is complete."; fi
 	printf '%bInstalling...%b\n' "$B" "$R"
-	s /usr/sbin/installer -allowUntrusted -pkg "$DRIVERS_PKG" -target / || e "installer error" $?
+	s /usr/sbin/installer -pkg "$DRIVERS_PKG" -target / || e "installer error" $?
 else
 	printf '%bInstalling...%b\n' "$B" "$R"
 	/usr/bin/rsync -r "${DRIVERS_ROOT}"/* /
