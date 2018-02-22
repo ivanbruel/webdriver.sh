@@ -395,7 +395,7 @@ else
 	declare -i c=$(/usr/bin/grep -c "<dict>" "$UPDATES_PLIST")
 	(( c -= 1, i = 0 ))
 	while (( i < c )); do
-		unset -v REMOTE_BUILD REMOTE_MAJOR REMOTE_URL REMOTE_VERSION REMOTE_CHECKSUM
+		unset -v "REMOTE_BUILD" "REMOTE_MAJOR" "REMOTE_URL" "REMOTE_VERSION" "REMOTE_CHECKSUM"
 		! REMOTE_BUILD=$(plistb "Print :updates:${i}:OS" "$UPDATES_PLIST") && break			
 		if [[ $REMOTE_BUILD == "$LOCAL_BUILD" || $COMMAND == "CMD_LIST" ]]; then
 			REMOTE_MAJOR=${REMOTE_BUILD:0:2}
@@ -481,6 +481,11 @@ else
 			printf '%s already installed\n' "$REMOTE_VERSION"
 			OPT_REINSTALL=true
 		fi
+		if ! s codesign -v "$STARTUP_KEXT"; then
+			printf 'Invalid signature: '
+			$KEXT_ALLOWED && printf 'Allowed\n'
+			! $KEXT_ALLOWED && printf 'Not allowed\n'
+		fi		
 		if ! check_required_os; then
 			update_caches
 			$SET_NVRAM
@@ -570,7 +575,7 @@ if [[ ! -d ${DRIVERS_ROOT}/Library/Extensions || ! -d ${DRIVERS_ROOT}/System/Lib
 
 cd "$DRIVERS_ROOT" || e "Failed to find drivers root directory" $?
 KEXT_INFO_PLISTS=(./Library/Extensions/*.kext/Contents/Info.plist)
-declare -a BUNDLES APPROVED
+declare -a BUNDLES APPROVED_BUNDLES
 for PLIST in "${KEXT_INFO_PLISTS[@]}"; do
 	BUNDLE_ID=$(plistb "Print :CFBundleIdentifier" "$PLIST")
 	[[ $BUNDLE_ID ]] && BUNDLES+=("$BUNDLE_ID")
@@ -588,12 +593,12 @@ else
 	# Get unapproved bundle IDs
 	QUERY="select bundle_id from kext_policy where team_id=\"6KR3T733EC\" and (flags=1 or flags=8)"
 	while IFS= read -r LINE; do
-		APPROVED+=( "$LINE" )
-	done < <( /usr/bin/sqlite3 /private/var/db/SystemPolicyConfiguration/KextPolicy "$QUERY" 2> /dev/null )
-	for MATCH in "${APPROVED[@]}"; do
+		APPROVED_BUNDLES+=("$LINE")
+	done < <(/usr/bin/sqlite3 /private/var/db/SystemPolicyConfiguration/KextPolicy "$QUERY" 2> /dev/null)
+	for MATCH in "${APPROVED_BUNDLES[@]}"; do
 		for index in "${!BUNDLES[@]}"; do
 			if [[ ${BUNDLES[index]} == "$MATCH" ]]; then
-				unset 'BUNDLES[index]';
+				unset "BUNDLES[index]";
 			fi;
 		done;
 	done
