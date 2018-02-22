@@ -36,13 +36,10 @@ CSR_STATUS=$(/usr/bin/csrutil status)
 	&& KEXT_ALLOWED=true
 /usr/bin/touch /System > /dev/null 2>&1 && FS_ALLOWED=true
 
-# Variables
 declare R='\e[0m' B='\e[1m' U='\e[4m'
 DRIVERS_DIR_HINT="NVWebDrivers.pkg"
 STARTUP_KEXT="/Library/Extensions/NVDAStartupWeb.kext"
 EGPU_KEXT="/Library/Extensions/NVDAEGPUSupport.kext"
-BREW_PREFIX=$(brew --prefix 2> /dev/null)
-HOST_PREFIX="/usr/local"
 ERR_PLIST_READ="Couldn't read a required value from a property list"
 ERR_PLIST_WRITE="Couldn't set a required value in a property list"
 SET_NVRAM="/usr/sbin/nvram nvda_drv=1%00"
@@ -50,7 +47,6 @@ UNSET_NVRAM="/usr/sbin/nvram -d nvda_drv"
 declare CHANGES_MADE=false RESTART_REQUIRED=false REINSTALL_MESSAGE=false
 declare -i EXIT_ERROR=0 COMMAND_COUNT=0
 declare OPT_REINSTALL=false OPT_SYSTEM=false OPT_ALL=false
-
 
 if [[ $BASENAME =~ "swebdriver" ]]; then
 	[[ $1 != "-u" ]] && exit 1
@@ -140,7 +136,6 @@ if (( COMMAND_COUNT == 0 )); then
 fi
 
 [[ $(/usr/bin/id -u) != "0" ]] && exec /usr/bin/sudo -u root "$0" "${RAW_ARGS[@]}"
-
 TMP_DIR=$(/usr/bin/mktemp -dt webdriver)
 trap "rm -rf $TMP_DIR; stty echo echok; exit" SIGINT SIGTERM SIGHUP
 UPDATES_PLIST="${TMP_DIR}/$(/usr/bin/uuidgen)"
@@ -148,6 +143,11 @@ INSTALLER_PKG="${TMP_DIR}/$(/usr/bin/uuidgen)"
 EXTRACTED_PKG_DIR="${TMP_DIR}/$(/usr/bin/uuidgen)"
 DRIVERS_PKG="${TMP_DIR}/com.nvidia.web-driver.pkg"
 DRIVERS_ROOT="${TMP_DIR}/$(/usr/bin/uuidgen)"
+if ls -la "$0" | grep -qi cellar && HOST_PREFIX=$(brew --prefix 2> /dev/null); then
+	true
+else
+	HOST_PREFIX=/usr/locals
+fi
 
 function s() {
 	# s $@: args... 
@@ -194,10 +194,7 @@ function warning() {
 
 function etc() {
 	# etc $1: path_to_script
-	if [[ -f "${BREW_PREFIX}${1}" ]]; then
-		# shellcheck source=/dev/null
-		source "${BREW_PREFIX}${1}"
-	elif [[ -f "${HOST_PREFIX}${1}" ]]; then
+	if [[ -f "${HOST_PREFIX}${1}" ]]; then
 		# shellcheck source=/dev/null
 		source "${HOST_PREFIX}${1}"
 	fi
@@ -205,9 +202,7 @@ function etc() {
 
 function scpt() {
 	# scpt $1: path_to_script
-	if [[ -f "${BREW_PREFIX}${1}" ]]; then
-		/usr/bin/osascript "${BREW_PREFIX}${1}" > /dev/null 2>&1
-	elif [[ -f "${HOST_PREFIX}${1}" ]]; then
+	if [[ -f "${HOST_PREFIX}${1}" ]]; then
 		/usr/bin/osascript  "${HOST_PREFIX}${1}" > /dev/null 2>&1
 	fi
 }
