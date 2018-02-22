@@ -137,6 +137,7 @@ fi
 
 [[ $(/usr/bin/id -u) != "0" ]] && exec /usr/bin/sudo -u root "$0" "${RAW_ARGS[@]}"
 TMP_DIR=$(/usr/bin/mktemp -dt webdriver)
+# shellcheck disable=SC2064
 trap "rm -rf $TMP_DIR; stty echo echok; exit" SIGINT SIGTERM SIGHUP
 UPDATES_PLIST="${TMP_DIR}/$(/usr/bin/uuidgen)"
 INSTALLER_PKG="${TMP_DIR}/$(/usr/bin/uuidgen)"
