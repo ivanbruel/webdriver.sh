@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.2.13"
+SCRIPT_VERSION="1.2.14"
 shopt -s nullglob
 BASENAME=$(/usr/bin/basename "$0")
 RAW_ARGS=("$@")
@@ -146,7 +146,7 @@ DRIVERS_ROOT="${TMP_DIR}/$(/usr/bin/uuidgen)"
 if ls -la "$0" | grep -qi cellar && HOST_PREFIX=$(brew --prefix 2> /dev/null); then
 	true
 else
-	HOST_PREFIX=/usr/locals
+	HOST_PREFIX=/usr/local
 fi
 
 function s() {
