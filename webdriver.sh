@@ -38,12 +38,6 @@ CSR_STATUS=$(/usr/bin/csrutil status)
 
 # Variables
 declare R='\e[0m' B='\e[1m' U='\e[4m'
-TMP_DIR=$(/usr/bin/mktemp -dt webdriver)
-UPDATES_PLIST="${TMP_DIR}/$(/usr/bin/uuidgen)"
-INSTALLER_PKG="${TMP_DIR}/$(/usr/bin/uuidgen)"
-EXTRACTED_PKG_DIR="${TMP_DIR}/$(/usr/bin/uuidgen)"
-DRIVERS_PKG="${TMP_DIR}/com.nvidia.web-driver.pkg"
-DRIVERS_ROOT="${TMP_DIR}/$(/usr/bin/uuidgen)"
 DRIVERS_DIR_HINT="NVWebDrivers.pkg"
 STARTUP_KEXT="/Library/Extensions/NVDAStartupWeb.kext"
 EGPU_KEXT="/Library/Extensions/NVDAEGPUSupport.kext"
@@ -56,6 +50,7 @@ UNSET_NVRAM="/usr/sbin/nvram -d nvda_drv"
 declare CHANGES_MADE=false RESTART_REQUIRED=false REINSTALL_MESSAGE=false
 declare -i EXIT_ERROR=0 COMMAND_COUNT=0
 declare OPT_REINSTALL=false OPT_SYSTEM=false OPT_ALL=false
+
 
 if [[ $BASENAME =~ "swebdriver" ]]; then
 	[[ $1 != "-u" ]] && exit 1
@@ -145,6 +140,14 @@ if (( COMMAND_COUNT == 0 )); then
 fi
 
 [[ $(/usr/bin/id -u) != "0" ]] && exec /usr/bin/sudo -u root "$0" "${RAW_ARGS[@]}"
+
+TMP_DIR=$(/usr/bin/mktemp -dt webdriver)
+trap "rm -rf $TMP_DIR; stty echo echok; exit" SIGINT SIGTERM SIGHUP
+UPDATES_PLIST="${TMP_DIR}/$(/usr/bin/uuidgen)"
+INSTALLER_PKG="${TMP_DIR}/$(/usr/bin/uuidgen)"
+EXTRACTED_PKG_DIR="${TMP_DIR}/$(/usr/bin/uuidgen)"
+DRIVERS_PKG="${TMP_DIR}/com.nvidia.web-driver.pkg"
+DRIVERS_ROOT="${TMP_DIR}/$(/usr/bin/uuidgen)"
 
 function s() {
 	# s $@: args... 
