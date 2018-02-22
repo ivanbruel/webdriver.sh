@@ -22,17 +22,17 @@ shopt -s nullglob
 BASENAME=$(/usr/bin/basename "$0")
 RAW_ARGS=("$@")
 MACOS_PRODUCT_VERSION=$(/usr/bin/sw_vers -productVersion)
-if ! /usr/bin/grep -e "10.13" <<< "$MACOS_PRODUCT_VERSION" > /dev/null 2>&1; then
+if ! /usr/bin/grep -qe "10.13" <<< "$MACOS_PRODUCT_VERSION"; then
 	printf 'Unsupported macOS version'; exit 1; fi
 if ! LOCAL_BUILD=$(/usr/bin/sw_vers -buildVersion); then
 	printf 'sw_vers error'; exit $?; fi
-(bdmesg | /usr/bin/grep -iE -e 'NVDAStartupWeb.*allowed' > /dev/null 2>&1) && CLOVER_PATCH=1
+(bdmesg | /usr/bin/grep -qiE -e 'NVDAStartupWeb.*allowed') && CLOVER_PATCH=1
 	
 # SIP
 declare KEXT_ALLOWED=false FS_ALLOWED=false
 KEXT_PATTERN='System Integrity Protection status: disabled|Kext Signing: disabled'
 CSR_STATUS=$(/usr/bin/csrutil status)
-/usr/bin/csrutil status | /usr/bin/grep -E -e "$KEXT_PATTERN" <<< "$CSR_STATUS" > /dev/null \
+/usr/bin/csrutil status | /usr/bin/grep -qE -e "$KEXT_PATTERN" <<< "$CSR_STATUS" \
 	&& KEXT_ALLOWED=true
 /usr/bin/touch /System > /dev/null 2>&1 && FS_ALLOWED=true
 
