@@ -17,24 +17,23 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.2.15"
+SCRIPT_VERSION="1.2.16"
+grep="/usr/bin/grep"
 shopt -s nullglob
 BASENAME=$(/usr/bin/basename "$0")
 RAW_ARGS=("$@")
 MACOS_PRODUCT_VERSION=$(/usr/bin/sw_vers -productVersion)
-if ! /usr/bin/grep -qe "10.13" <<< "$MACOS_PRODUCT_VERSION"; then
+if ! $grep -qe "10.13" <<< "$MACOS_PRODUCT_VERSION"; then
 	printf 'Unsupported macOS version'; exit 1; fi
 if ! LOCAL_BUILD=$(/usr/bin/sw_vers -buildVersion); then
 	printf 'sw_vers error'; exit $?; fi
-(bdmesg | /usr/bin/grep -qiE -e 'NVDAStartupWeb.*allowed') && CLOVER_PATCH=1
+$grep -qiE -e "nvdastartupweb.*allowed" <(/usr/sbin/ioreg -p IODeviceTree -c IOService -k boot-log -d 1 -r \
+	| $grep boot-log | /usr/bin/awk -v FS="(<|>)" '{print $2}' | /usr/bin/xxd -r -p) && CLOVER_PATCH=1
 	
 # SIP
 declare KEXT_ALLOWED=false FS_ALLOWED=false
-KEXT_PATTERN='System Integrity Protection status: disabled|Kext Signing: disabled'
-CSR_STATUS=$(/usr/bin/csrutil status)
-/usr/bin/csrutil status | /usr/bin/grep -qE -e "$KEXT_PATTERN" <<< "$CSR_STATUS" \
-	&& KEXT_ALLOWED=true
-/usr/bin/touch /System > /dev/null 2>&1 && FS_ALLOWED=true
+$grep -qiE -e "status: disabled|signing: disabled" <(/usr/bin/csrutil status) && KEXT_ALLOWED=true
+/usr/bin/touch /System 2> /dev/null && FS_ALLOWED=true
 
 declare R='\e[0m' B='\e[1m' U='\e[4m'
 DRIVERS_DIR_HINT="NVWebDrivers.pkg"
@@ -136,15 +135,16 @@ if (( COMMAND_COUNT == 0 )); then
 fi
 
 [[ $(/usr/bin/id -u) != "0" ]] && exec /usr/bin/sudo -u root "$0" "${RAW_ARGS[@]}"
+uuidgen="/usr/bin/uuidgen"
 TMP_DIR=$(/usr/bin/mktemp -dt webdriver)
 # shellcheck disable=SC2064
 trap "rm -rf $TMP_DIR; stty echo echok; exit" SIGINT SIGTERM SIGHUP
-UPDATES_PLIST="${TMP_DIR}/$(/usr/bin/uuidgen)"
-INSTALLER_PKG="${TMP_DIR}/$(/usr/bin/uuidgen)"
-EXTRACTED_PKG_DIR="${TMP_DIR}/$(/usr/bin/uuidgen)"
+UPDATES_PLIST="${TMP_DIR}/$($uuidgen)"
+INSTALLER_PKG="${TMP_DIR}/$($uuidgen)"
+EXTRACTED_PKG_DIR="${TMP_DIR}/$($uuidgen)"
 DRIVERS_PKG="${TMP_DIR}/com.nvidia.web-driver.pkg"
-DRIVERS_ROOT="${TMP_DIR}/$(/usr/bin/uuidgen)"
-if /bin/ls -la "$0" | /usr/bin/grep -qi cellar && HOST_PREFIX=$(brew --prefix 2> /dev/null); then
+DRIVERS_ROOT="${TMP_DIR}/$($uuidgen)"
+if /bin/ls -la "$0" | $grep -qi cellar && HOST_PREFIX=$(brew --prefix 2> /dev/null); then
 	true
 else
 	HOST_PREFIX=/usr/local
@@ -241,9 +241,9 @@ function update_caches() {
 	local RESULT
 	printf '%bUpdating caches...%b\n' "$B" "$R"
 	RESULT=$(/usr/sbin/kextcache -v 2 -i / 2>&1)
-	s /usr/bin/grep -e "$PLK" <<< "$RESULT" || caches_error "$ERR_PLK"
-	s /usr/bin/grep -e "$SLE" <<< "$RESULT" || caches_error "$ERR_SLE"
-	s /usr/bin/grep -e "$LE" <<< "$RESULT" || caches_error "$ERR_LE"
+	$grep -qe "$PLK" <<< "$RESULT" || caches_error "$ERR_PLK"
+	$grep -qe "$SLE" <<< "$RESULT" || caches_error "$ERR_SLE"
+	$grep -qe "$LE" <<< "$RESULT" || caches_error "$ERR_LE"
 	(( EXIT_ERROR != 0 )) && printf '\nTo try again use:\n%bsudo kextcache -i /%b\n\n' "$B" "$R"	 
 }
 
@@ -274,9 +274,7 @@ function plistb() {
 
 function set_required_os() {
 	# set_required_os $1: target_version
-	local RESULT
-	local TARGET_BUILD="$1"
-	local KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
+	local RESULT TARGET_BUILD="$1" KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
 	RESULT=$(plistb "Print $KEY" "${STARTUP_KEXT}/Contents/Info.plist") || e "$ERR_PLIST_READ"
 	if [[ $RESULT == "$TARGET_BUILD" ]]; then
 		printf 'NVDARequiredOS already set to %s\n' "$TARGET_BUILD"
@@ -300,8 +298,7 @@ function set_required_os() {
 function check_required_os() {
 	if $OPT_SYSTEM || [[ $DONT_INVALIDATE_KEXTS -eq 1 ]] || [[ $CLOVER_PATCH -eq 1 ]]; then
 		return 0; fi
-	local RESULT
-	local KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
+	local RESULT KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
 	if [[ -f ${STARTUP_KEXT}/Contents/Info.plist ]]; then
 		RESULT=$(plistb "Print $KEY" "${STARTUP_KEXT}/Contents/Info.plist") || e "$ERR_PLIST_READ"
 		if [[ $RESULT != "$LOCAL_BUILD" ]]; then
@@ -316,15 +313,13 @@ function check_required_os() {
 
 function sql_add_kext() {
 	# sql_add_kext $1:bundle_id
-	SQL+="insert or replace into kext_policy "
-	SQL+="(team_id, bundle_id, allowed, developer_name, flags) "
+	SQL+="insert or replace into kext_policy (team_id, bundle_id, allowed, developer_name, flags) "
 	SQL+="values (\"6KR3T733EC\",\"${1}\",1,\"NVIDIA Corporation\",1); "
 }
 
 function match_build() {
 	# match_build $1:local $2:remote
-	local -i LOCAL=$1
-	local -i REMOTE=$2
+	local -i LOCAL=$1 REMOTE=$2
 	[[ $REMOTE -eq $(( LOCAL + 1 )) ]] && return 0
 	[[ $REMOTE -ge 17 && $REMOTE -eq $(( LOCAL - 1 )) ]] && return 0
 	return 1
@@ -392,7 +387,7 @@ else
 	/usr/bin/curl -s --connect-timeout 15 -m 45 -o "$UPDATES_PLIST" "https://gfestage.nvidia.com/mac-update" \
 		|| e "Couldn't get updates data from Nvidia" $?
 	# shellcheck disable=SC2155
-	declare -i c=$(/usr/bin/grep -c "<dict>" "$UPDATES_PLIST")
+	declare -i c=$($grep -c "<dict>" "$UPDATES_PLIST")
 	(( c -= 1, i = 0 ))
 	while (( i < c )); do
 		unset -v "REMOTE_BUILD" "REMOTE_MAJOR" "REMOTE_URL" "REMOTE_VERSION" "REMOTE_CHECKSUM"
@@ -429,7 +424,7 @@ else
 			printf '%bRunning on:%b macOS %s (%s)\n\n' "$B" "$R" "$MACOS_PRODUCT_VERSION" "$LOCAL_BUILD"
 			count=${#LIST_VERSIONS[@]}
 			FORMAT_COMMAND="/usr/bin/tee"
-			tl=$(tput lines)
+			tl=$(/usr/bin/tput lines)
 			[[ $count -gt $(( tl - 5 )) || $count -gt 15 ]] && FORMAT_COMMAND="/usr/bin/column"
 			(( i = 0 ))
 			VERSION_FORMAT_STRING="%-${VERSION_MAX_WIDTH}s"
@@ -457,7 +452,7 @@ else
 				break
 			fi
 			printf '\nTry again...\n\n'
-			tput bel
+			/usr/bin/tput bel
 		done
 	fi
 	# Determine next action
@@ -527,7 +522,7 @@ if [[ $COMMAND != "CMD_FILE" ]]; then
 		REMOTE_URL+="/WebDriver-${REMOTE_VERSION}.pkg"
 	fi
 	HEADERS=$(/usr/bin/curl -I "$REMOTE_URL" 2>&1) || e "Failed to download HTTP headers"
-	s /usr/bin/grep "octet-stream" <<< "$HEADERS" || warning "Unexpected HTTP content type"
+	$grep -qe "octet-stream" <<< "$HEADERS" || warning "Unexpected HTTP content type"
 	[[ $COMMAND != "CMD_USER_URL" ]] && printf 'URL: %s\n' "$REMOTE_URL"
 
 	# Download
@@ -569,7 +564,8 @@ cd "$DRIVERS_ROOT" || e "Failed to find drivers root directory" $?
 /usr/bin/cpio -i < "${DRIVERS_ROOT}/tmp.cpio" || e "Failed to extract package" $?
 s rm -f "${DRIVERS_ROOT}/tmp.cpio"
 if [[ ! -d ${DRIVERS_ROOT}/Library/Extensions || ! -d ${DRIVERS_ROOT}/System/Library/Extensions ]]; then
-	e "Unexpected directory structure after extraction"; fi
+	e "Unexpected directory structure after extraction"
+fi
 
 # User-approved kernel extension loading
 
@@ -628,7 +624,7 @@ etc "/etc/webdriver.sh/post-install.conf"
 
 s /sbin/kextload "$STARTUP_KEXT" # kextload returns 27 when a kext hasn't been approved yet
 if [[ $? -eq 27 ]]; then
-	s /usr/bin/osascript -e "beep"
+	/usr/bin/tput bel
 	printf 'Allow NVIDIA Corporation in security preferences to continue...\n'
 	NEEDS_KEXTCACHE=true
 	while ! s /usr/bin/kextutil -tn "$STARTUP_KEXT"; do
@@ -648,7 +644,6 @@ $SET_NVRAM
 if $OPT_SYSTEM; then
 	s rm -rf "$TMP_DIR"
 	printf '%bSystem update...%b\n' "$B" "$R"
-	RESULT=$(/usr/sbin/softwareupdate -ir 2>&1)
-	/usr/bin/grep -iE -e "no updates|restart" <<< "$RESULT" | /usr/bin/tail -1
+	$grep -iE -e "no updates|restart" <(/usr/sbin/softwareupdate -ir 2>&1) | /usr/bin/tail -1
 fi
 exit_after_install
