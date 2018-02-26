@@ -604,7 +604,7 @@ for PLIST in "${KEXT_INFO_PLISTS[@]}"; do
 done
 if $FS_ALLOWED; then
 	# Approve kexts
-	printf '%bApproving kexts...%b\n' "$B" "$R"
+	printf '%bApproving extensions...%b\n' "$B" "$R"
 	for BUNDLE_ID in "${BUNDLES[@]}"; do
 		sql_add_kext "$BUNDLE_ID"
 	done
@@ -613,6 +613,7 @@ if $FS_ALLOWED; then
 		|| warning "sqlite3 exit code $?"
 else
 	# Get unapproved bundle IDs
+	printf '%bExamining extensions...%b\n' "$B" "$R"
 	QUERY="select bundle_id from kext_policy where team_id=\"6KR3T733EC\" and (flags=1 or flags=8)"
 	while IFS= read -r LINE; do
 		APPROVED_BUNDLES+=("$LINE")
