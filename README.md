@@ -7,7 +7,7 @@
 </picture>
 </p>
 
-Bash script for managing Nvidia's web drivers on macOS High Sierra.
+Bash script for managing NVIDIA's web drivers on macOS High Sierra.
 
 <br/>
 
@@ -31,7 +31,7 @@ brew upgrade webdriver.sh
 # Example Usage
 
 <p align="center">
-<img src="https://raw.githubusercontent.com/vulgo/webdriver.sh/master/Images/egpu.svg?sanitize=true" alt="Macbook Pro Nvidia EGPU" width="50%">
+<img src="https://raw.githubusercontent.com/vulgo/webdriver.sh/master/Images/egpu.svg?sanitize=true" alt="Macbook Pro NVIDIA EGPU" width="50%">
 </p>
 
 ## Install the latest drivers
@@ -40,7 +40,7 @@ brew upgrade webdriver.sh
 webdriver
 ```
 
-Installs/updates to the latest available Nvidia web drivers for your current version of macOS.
+Installs/updates to the latest available NVIDIA web drivers for your current version of macOS.
 
 <br/>
 
@@ -76,7 +76,7 @@ Downloads the package at <em>URL</em> and installs the drivers within. There is 
 webdriver --remove
 ```
 
-Removes Nvidia's web drivers from your system.
+Removes NVIDIA's web drivers from your system.
 
 <br />
 
@@ -107,21 +107,21 @@ Displays help, lists options.
 
 Yes, you can use webdriver.sh before or after using any other method of driver installation.
 
-#### Does webdriver.sh install the Nvidia preference pane?
+#### Does webdriver.sh install the NVIDIA preference pane?
 
-No, you can install it at any point via Nvidia's installer package - webdriver.sh works fine with or without it. Alternatively, [Web Driver Manager](https://github.com/vulgo/WebDriverManager/releases/download/v1.2/WebDriverManager.dmg) is a minimal menu bar app ([source](https://github.com/vulgo/WebDriverManager)) that monitors driver status and the nvda_drv NVRAM variable.
+No, you can install it at any point via NVIDIA's installer package - webdriver.sh works fine with or without it. Alternatively, [Web Driver Manager](https://github.com/vulgo/WebDriverManager/releases/download/v1.2/WebDriverManager.dmg) is a minimal menu bar app ([source](https://github.com/vulgo/WebDriverManager)) that monitors driver status and the nvda_drv NVRAM variable.
 
 #### Do I need to disable SIP?
 
-No, but you'll want to if you are modifying the drivers to load - making changes to a kext's Info.plist excludes it from the prelinked kernel the next time it's built. Clover users may try [this kext patch](https://github.com/vulgo/webdriver.sh/blob/master/etc/clover-patch.plist) which disables Nvidia's OS checks. See also: [WebDriverStartup](https://github.com/vulgo/WebDriverStartup).
+No, but you'll want to if you are modifying the drivers to load - making changes to a kext's Info.plist excludes it from the prelinked kernel the next time it's built. Clover users may try [this kext patch](https://github.com/vulgo/webdriver.sh/blob/master/etc/clover-patch.plist) which disables NVIDIA's OS checks. See also: [WebDriverStartup](https://github.com/vulgo/WebDriverStartup).
 
-#### Will webdriver.sh mess with Nvidia's installer or 'repackage' the driver?
+#### Will webdriver.sh mess with NVIDIA's installer or 'repackage' the driver?
 
 No, there are [other tools](https://www.google.com/search?q=nvidia+web+driver+repackager) available for doing this. For example,  [NvidiaWebDriverRepackager](https://github.com/Pavo-IM/NvidiaWebDriverRepackager)
 
 #### Won't there be problems without repackaging?
 
-No, the drivers are installed in exactly the same way (yes, it's just copying files) - and Nvidia's own installer removes anything installed by webdriver.sh.
+No, the drivers are installed in exactly the same way (yes, it's just copying files) - and NVIDIA's own installer removes anything installed by webdriver.sh.
 
 #### Can't I just uninstall the drivers using webdriver.sh?
 

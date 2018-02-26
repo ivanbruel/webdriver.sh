@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.2.17"
+SCRIPT_VERSION="1.2.18"
 grep="/usr/bin/grep"
 shopt -s nullglob extglob
 BASENAME=$(/usr/bin/basename "$0")
@@ -355,7 +355,7 @@ function match_build() {
 
 if [[ $COMMAND == "CMD_REQUIRED_OS" ]]; then
 	if [[ ! -f "${STARTUP_KEXT}/Contents/Info.plist" ]]; then
-		printf 'Nvidia driver not found\n'
+		printf 'NVIDIA driver not found\n'
 		$UNSET_NVRAM
 		exit_quietly
 	else
@@ -377,7 +377,7 @@ fi
 # COMMAND CMD_UNINSTALL
 
 if [[ $COMMAND == "CMD_UNINSTALL" ]]; then
-	ask "Uninstall Nvidia web drivers?" || exit_quietly
+	ask "Uninstall NVIDIA web drivers?" || exit_quietly
 	printf '%bRemoving files...%b\n' "$B" "$R"
 	CHANGES_MADE=true
 	uninstall_drivers
@@ -411,7 +411,7 @@ else
 	# Get updates file
 	printf '%bChecking for updates...%b\n' "$B" "$R"
 	/usr/bin/curl -s --connect-timeout 15 -m 45 -o "$UPDATES_PLIST" "https://gfestage.nvidia.com/mac-update" \
-		|| e "Couldn't get updates data from Nvidia" $?
+		|| e "Couldn't get updates data from NVIDIA" $?
 	# shellcheck disable=SC2155
 	declare -i c=$($grep -c "<dict>" "$UPDATES_PLIST")
 	(( c -= 1, i = 0 ))
@@ -633,7 +633,7 @@ uninstall_drivers
 declare CHANGES_MADE=true NEEDS_KEXTCACHE=false RESTART_REQUIRED=true
 if ! $FS_ALLOWED; then
 	s /usr/bin/pkgbuild --identifier com.nvidia.web-driver --root "$DRIVERS_ROOT" "$DRIVERS_PKG"
-	# macOS prompts to restart after Nvidia Corporation has been initially allowed, without
+	# macOS prompts to restart after NVIDIA Corporation has been initially allowed, without
 	# rebuilding caches, which should be done AFTER team_id has been added to kext_policy
 	if ! $KEXT_ALLOWED && [[ ! -z $UNAPPROVED_BUNDLES ]]; then
 		warning "Don't restart until this process is complete."; fi
