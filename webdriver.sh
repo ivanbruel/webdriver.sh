@@ -19,7 +19,7 @@
 
 SCRIPT_VERSION="1.2.17"
 grep="/usr/bin/grep"
-shopt -s nullglob
+shopt -s nullglob extglob
 BASENAME=$(/usr/bin/basename "$0")
 RAW_ARGS=("$@")
 MACOS_PRODUCT_VERSION=$(/usr/bin/sw_vers -productVersion)
@@ -45,22 +45,44 @@ SET_NVRAM="/usr/sbin/nvram nvda_drv=1%00"
 UNSET_NVRAM="/usr/sbin/nvram -d nvda_drv"
 declare CHANGES_MADE=false RESTART_REQUIRED=false REINSTALL_MESSAGE=false
 declare -i EXIT_ERROR=0 COMMAND_COUNT=0
-declare OPT_REINSTALL=false OPT_SYSTEM=false OPT_ALL=false
+declare OPT_REINSTALL=false OPT_SYSTEM=false OPT_ALL=false OPT_YES=false
 
 if [[ $BASENAME =~ "swebdriver" ]]; then
 	[[ $1 != "-u" ]] && exit 1
 	[[ -z $2 ]] && exit 1
 	set -- "-u" "$2"
 	OPT_SYSTEM=true
+	OPT_YES=true
+else
+	set --
+	for arg in "${RAW_ARGS[@]}"
+	do
+		case "$arg" in
+		@(|-|--)help)
+			set -- "$@" "-h";;
+		@(|-|--)list)
+			set -- "$@" "-l";;
+		@(|-|--)url)
+			set -- "$@" "-u";;
+		@(|-|--)remove)
+			set -- "$@" "-r";;
+		@(|-|--)uninstall)
+			set -- "$@" "-r";;
+		@(|-|--)version)
+			set -- "$@" "-v";;
+		*)
+			set -- "$@" "$arg";;
+		esac
+	done
 fi
 
 function usage() {
 	printf 'Usage: %s [-f] [-l|-u|-r|-m|FILE]\n' "$BASENAME"
-	printf '    -l            choose which driver to install from a list\n'
-	printf '    -u URL        install driver package at URL, no version checks\n'
-	printf '    -r            uninstall drivers\n'
-	printf "    -m [BUILD]    modify the current driver's NVDARequiredOS"'\n'
-	printf '    -f            re-install the current drivers\n'
+	printf '   --list    or  -l          choose which driver to install from a list\n'
+	printf '   --url     or  -u URL      download package from URL and install drivers\n'
+	printf '   --remove  or  -r          uninstall NVIDIA web drivers\n'
+	printf "                 -m [BUILD]  apply Info.plist patch for NVDARequiredOS"'\n'
+	printf '                 -f          continue when same version already installed\n'
 }
 
 function version() {
@@ -70,7 +92,7 @@ function version() {
 	printf 'See the GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n'
 }
 
-while getopts ":hvlu:rm:fa!:" OPTION; do
+while getopts ":hvlu:rm:fa!:#:Y" OPTION; do
 	case $OPTION in
 	"h")
 		usage
@@ -100,6 +122,10 @@ while getopts ":hvlu:rm:fa!:" OPTION; do
 	"!")
 		# shellcheck disable=SC2034
 		CONFIG_ARGS="$OPTARG";;
+	"#")
+		REMOTE_CHECKSUM="$OPTARG";;
+	"Y")
+		OPT_YES=true;;
 	"?")
 		printf 'Invalid option: -%s\n' "$OPTARG"
 		usage
@@ -296,7 +322,7 @@ function set_required_os() {
 }
 
 function check_required_os() {
-	if $OPT_SYSTEM || [[ $DONT_INVALIDATE_KEXTS -eq 1 ]] || [[ $CLOVER_PATCH -eq 1 ]]; then
+	if $OPT_YES || [[ $DONT_INVALIDATE_KEXTS -eq 1 ]] || [[ $CLOVER_PATCH -eq 1 ]]; then
 		return 0; fi
 	local RESULT KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
 	if [[ -f ${STARTUP_KEXT}/Contents/Info.plist ]]; then
@@ -351,7 +377,7 @@ fi
 # COMMAND CMD_UNINSTALL
 
 if [[ $COMMAND == "CMD_UNINSTALL" ]]; then
-	ask "Uninstall Nvidia web drivers?"
+	ask "Uninstall Nvidia web drivers?" || exit_quietly
 	printf '%bRemoving files...%b\n' "$B" "$R"
 	CHANGES_MADE=true
 	uninstall_drivers
@@ -504,7 +530,7 @@ fi
 
 # Prompt install y/n
 
-if ! $OPT_SYSTEM; then
+if ! $OPT_YES; then
 	if $REINSTALL_MESSAGE; then
 		ask "Re-install?" || exit_quietly
 	else

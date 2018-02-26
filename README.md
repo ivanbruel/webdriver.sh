@@ -37,7 +37,7 @@ brew upgrade webdriver.sh
 ## Install the latest drivers
 
 ```
-sudo webdriver
+webdriver
 ```
 
 Installs/updates to the latest available Nvidia web drivers for your current version of macOS.
@@ -47,7 +47,7 @@ Installs/updates to the latest available Nvidia web drivers for your current ver
 ## Choose from a list of drivers
 
 ```
-sudo webdriver -l
+webdriver --list
 ```
 
 Displays a list of driver versions, choose one to download and install it.
@@ -57,23 +57,23 @@ Displays a list of driver versions, choose one to download and install it.
 #### Install from local package or URL
 
 ```
-sudo webdriver FILE
+webdriver FILE
 ```
 
-Installs the drivers from package FILE on the local filesystem.
+Installs the drivers from package <em>FILE</em> on the local filesystem.
 
 ```
-sudo webdriver -u URL
+webdriver -u URL
 ```
 
-Downloads the package at URL and installs the drivers within. There is a nice list of available URLs maintained [here](http://www.macvidcards.com/drivers.html).
+Downloads the package at <em>URL</em> and installs the drivers within. There is a nice list of available URLs maintained [here](http://www.macvidcards.com/drivers.html).
 
 <br />
 
 #### Uninstall drivers
 
 ```
-sudo webdriver -r
+webdriver --remove
 ```
 
 Removes Nvidia's web drivers from your system.
@@ -83,7 +83,7 @@ Removes Nvidia's web drivers from your system.
 #### Patch drivers to load on a different version of macOS
 
 ```
-sudo webdriver -m [BUILD]
+webdriver -m [BUILD]
 ```
 
 Modifies the installed driver's NVDARequiredOS. If no [BUILD] is provided for option -m, the installed macOS's build version string will be used.
@@ -93,10 +93,10 @@ Modifies the installed driver's NVDARequiredOS. If no [BUILD] is provided for op
 #### Show help
 
 ```
-webdriver -h
+webdriver --help
 ```
 
-Displays help, lists options
+Displays help, lists options.
 
 <br />
 <br />
