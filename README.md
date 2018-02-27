@@ -109,7 +109,7 @@ Yes, you can use webdriver.sh before or after using any other method of driver i
 
 #### Does webdriver.sh install the NVIDIA preference pane?
 
-No, you can install it at any point via NVIDIA's installer package - webdriver.sh works fine with or without it. Alternatively, [Web Driver Manager](https://github.com/vulgo/WebDriverManager/releases/download/v1.2/WebDriverManager.dmg) is a minimal menu bar app ([source](https://github.com/vulgo/WebDriverManager)) that monitors driver status and the nvda_drv NVRAM variable.
+No, you can install it at any point via NVIDIA's installer package - webdriver.sh works fine with or without it. Alternatively, [Web Driver Manager](https://github.com/vulgo/WebDriverManager/releases/download/v1.3/WebDriverManager.dmg) is a minimal menu bar app ([source](https://github.com/vulgo/WebDriverManager)) that monitors driver status and the nvda_drv NVRAM variable.
 
 #### Do I need to disable SIP?
 
