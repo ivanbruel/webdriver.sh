@@ -639,7 +639,7 @@ if ! $FS_ALLOWED; then
 	if ! $KEXT_ALLOWED && [[ ! -z $UNAPPROVED_BUNDLES ]]; then
 		warning "Don't restart until this process is complete."; fi
 	printf '%bInstalling...%b\n' "$B" "$R"
-	s /usr/sbin/installer -pkg "$DRIVERS_PKG" -target / || e "installer error" $?
+	s /usr/sbin/installer -allowUntrusted -pkg "$DRIVERS_PKG" -target / || e "installer error" $?
 else
 	printf '%bInstalling...%b\n' "$B" "$R"
 	/usr/bin/rsync -r "${DRIVERS_ROOT}"/* /
