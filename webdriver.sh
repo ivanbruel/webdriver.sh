@@ -35,7 +35,9 @@ declare KEXT_ALLOWED=false FS_ALLOWED=false
 $grep -qiE -e "status: disabled|signing: disabled" <(/usr/bin/csrutil status) && KEXT_ALLOWED=true
 /usr/bin/touch /System 2> /dev/null && FS_ALLOWED=true
 
-declare R='\e[0m' B='\e[1m' U='\e[4m'
+if test -t 0; then
+	declare R='\e[0m' B='\e[1m' U='\e[4m'
+fi
 DRIVERS_DIR_HINT="NVWebDrivers.pkg"
 STARTUP_KEXT="/Library/Extensions/NVDAStartupWeb.kext"
 EGPU_KEXT="/Library/Extensions/NVDAEGPUSupport.kext"
