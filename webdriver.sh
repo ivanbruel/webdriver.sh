@@ -35,9 +35,7 @@ declare KEXT_ALLOWED=false FS_ALLOWED=false
 $grep -qiE -e "status: disabled|signing: disabled" <(/usr/bin/csrutil status) && KEXT_ALLOWED=true
 /usr/bin/touch /System 2> /dev/null && FS_ALLOWED=true
 
-if test -t 0; then
-	declare R='\e[0m' B='\e[1m' U='\e[4m'
-fi
+test -t 0 && declare R='\e[0m' B='\e[1m' U='\e[4m'
 DRIVERS_DIR_HINT="NVWebDrivers.pkg"
 STARTUP_KEXT="/Library/Extensions/NVDAStartupWeb.kext"
 EGPU_KEXT="/Library/Extensions/NVDAEGPUSupport.kext"
@@ -294,11 +292,8 @@ function ask() {
 function plistb() {
 	# plistb $1: command, $2: file
 	local RESULT
-	if [[ ! -f "$2" ]]; then
-		return 1
-	else 
-		! RESULT=$(/usr/libexec/PlistBuddy -c "$1" "$2" 2> /dev/null) && return 1
-	fi
+	[[ ! -f "$2" ]] && return 1
+	! RESULT=$(/usr/libexec/PlistBuddy -c "$1" "$2" 2> /dev/null) && return 1
 	[[ $RESULT ]] && printf "%s" "$RESULT"
 	return 0
 }
@@ -327,8 +322,7 @@ function set_required_os() {
 }
 
 function check_required_os() {
-	if $OPT_YES || [[ $DONT_INVALIDATE_KEXTS -eq 1 ]] || [[ $CLOVER_PATCH -eq 1 ]]; then
-		return 0; fi
+	{ $OPT_YES || [[ $DONT_INVALIDATE_KEXTS -eq 1 ]] || [[ $CLOVER_PATCH -eq 1 ]]; } && return 0
 	local RESULT KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
 	if [[ -f ${STARTUP_KEXT}/Contents/Info.plist ]]; then
 		RESULT=$(plistb "Print $KEY" "${STARTUP_KEXT}/Contents/Info.plist") || e "$ERR_PLIST_READ"
@@ -429,8 +423,7 @@ else
 		|| e "Couldn't get updates data from NVIDIA" $?
 	# shellcheck disable=SC2155
 	declare -i c=$($grep -c "<dict>" "$UPDATES_PLIST")
-	(( c -= 1, i = 0 ))
-	while (( i < c )); do
+	for (( i = 0; i < c - 1; i += 1 )); do
 		unset -v "REMOTE_BUILD" "REMOTE_MAJOR" "REMOTE_URL" "REMOTE_VERSION" "REMOTE_CHECKSUM"
 		! REMOTE_BUILD=$(plistb "Print :updates:${i}:OS" "$UPDATES_PLIST") && break			
 		if [[ $REMOTE_BUILD == "$LOCAL_BUILD" || $COMMAND == "CMD_LIST" ]]; then
@@ -447,12 +440,10 @@ else
 					[[ ${#REMOTE_VERSION} -gt $VERSION_MAX_WIDTH ]] && VERSION_MAX_WIDTH=${#REMOTE_VERSION}
 				fi
 				(( ${#LIST_VERSIONS[@]} > 47 )) && break
-				(( i += 1 ))
 				continue
 			fi	
 			break
 		fi
-		(( i += 1 ))
 	done;
 	if [[ $COMMAND == "CMD_LIST" ]]; then
 		while true; do
@@ -467,18 +458,15 @@ else
 			FORMAT_COMMAND="/usr/bin/tee"
 			tl=$(/usr/bin/tput lines)
 			[[ $count -gt $(( tl - 5 )) || $count -gt 15 ]] && FORMAT_COMMAND="/usr/bin/column"
-			(( i = 0 ))
 			VERSION_FORMAT_STRING="%-${VERSION_MAX_WIDTH}s"
-			while (( i < count )); do
-				(( n = i + 1 ))
-				PADDED_INDEX=$(printf '%4s |  ' $n)
+			for (( i = 0; i < count; i += 1 )); do
+				PADDED_INDEX=$(printf '%4s |  ' $(( i + 1 )) )
 				ROW="$PADDED_INDEX"
 				# shellcheck disable=SC2059
 				PADDED_VERSION=$(printf "$VERSION_FORMAT_STRING" "${LIST_VERSIONS[$i]}")
 				ROW+="$PADDED_VERSION  "
 				ROW+="${LIST_BUILDS[$i]}"
 				printf '%s\n' "$ROW"
-				(( i += 1 ))
 			done | $FORMAT_COMMAND
 			printf '\n'
 			printf '%bWhat now?%b [1-%s] : ' "$B" "$R" "$count"
