@@ -83,12 +83,14 @@ else
 fi
 
 function usage() {
+	local -i status=$1
 	printf 'Usage: %s [-f] [-l|-u|-r|-m|FILE]\n' "$BASENAME"
 	printf '   --list    or  -l          choose which driver to install from a list\n'
 	printf '   --url     or  -u URL      download package from URL and install drivers\n'
 	printf '   --remove  or  -r          uninstall NVIDIA web drivers\n'
 	printf "                 -m [BUILD]  apply Info.plist patch for NVDARequiredOS"'\n'
 	printf '                 -f          continue when same version already installed\n'
+	exit $status
 }
 
 function version() {
@@ -96,16 +98,15 @@ function version() {
 	printf 'This is free software: you are free to change and redistribute it.\n'
 	printf 'There is NO WARRANTY, to the extent permitted by law.\n'
 	printf 'See the GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n'
+	exit 0
 }
 
 while getopts ":hvlu:rm:fa!:#:Y" OPTION; do
 	case $OPTION in
 	"h")
-		usage
-		exit 0;;
+		usage;;
 	"v")
-		version
-		exit 0;;
+		version;;
 	"l")
 		COMMAND="CMD_LIST"
 		OPT_REINSTALL=true
@@ -134,8 +135,7 @@ while getopts ":hvlu:rm:fa!:#:Y" OPTION; do
 		OPT_YES=true;;
 	"?")
 		printf 'Invalid option: -%s\n' "$OPTARG"
-		usage
-		exit 1;;
+		usage 1;;
 	":")
 		if [[ $OPTARG == "m" ]]; then
 			OPT_REQUIRED_OS="$LOCAL_BUILD"
@@ -143,14 +143,12 @@ while getopts ":hvlu:rm:fa!:#:Y" OPTION; do
 			COMMAND_COUNT+=1
 		else
 			printf 'Missing parameter for -%s\n' "$OPTARG"
-			usage
-			exit 1
+			usage 1
 		fi;;
 	esac
 	if (( COMMAND_COUNT > 1)); then
 		printf 'Too many options\n'
-		usage
-		exit 1
+		usage 1
 	fi
 done
 
