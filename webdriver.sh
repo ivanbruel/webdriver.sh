@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.2.19"
+SCRIPT_VERSION="1.2.20"
 grep="/usr/bin/grep"
 shopt -s nullglob extglob
 BASENAME=$(/usr/bin/basename "$0")
@@ -202,16 +202,12 @@ function exit_quietly() {
 }
 
 function exit_after_changes() {
+	MSG="$1"
+	[[ -z $1 ]] && MSG="Complete."
 	s rm -rf "$TMP_DIR"
-	[[ $EXIT_ERROR -eq 0 ]] && printf 'Complete.\n'
-	exit $EXIT_ERROR
-}
-
-function exit_after_install() {
-	printf 'Installation complete.'
-	$RESTART_REQUIRED && printf ' You should reboot now.'
+	printf '%s' "$MSG"
+	[[ $EXIT_ERROR -eq 0 ]] && $RESTART_REQUIRED && printf ' You should reboot now.'
 	printf '\n'
-	s rm -rf "$TMP_DIR"
 	exit $EXIT_ERROR
 }
 
@@ -407,7 +403,7 @@ if [[ $COMMAND == "CMD_UNINSTALL" ]]; then
 	uninstall_drivers
 	update_caches
 	$UNSET_NVRAM
-	exit_after_install
+	exit_after_changes "Uninstall complete."
 fi
 
 # UPDATER/INSTALLER
@@ -693,4 +689,4 @@ if $OPT_SYSTEM; then
 	printf '%bSystem update...%b\n' "$B" "$R"
 	$grep -iE -e "no updates|restart" <(/usr/sbin/softwareupdate -ir 2>&1) | /usr/bin/tail -1
 fi
-exit_after_install
+exit_after_changes "Installation complete."
