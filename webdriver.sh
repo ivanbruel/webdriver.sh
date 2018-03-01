@@ -400,6 +400,7 @@ if [[ $COMMAND == "CMD_UNINSTALL" ]]; then
 	ask "Uninstall NVIDIA web drivers?" || exit_quietly
 	printf '%bRemoving files...%b\n' "$B" "$R"
 	CHANGES_MADE=true
+	RESTART_REQUIRED=true
 	uninstall_drivers
 	update_caches
 	$UNSET_NVRAM
