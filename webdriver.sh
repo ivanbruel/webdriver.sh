@@ -229,9 +229,9 @@ function etc() {
 }
 
 function libexec() {
-	# libexec $1: path_to_binary
-	if [[ -f "${HOST_PREFIX}/libexec/webdriver.sh/${1}" ]]; then
-		"${HOST_PREFIX}/libexec/webdriver.sh/${1}"
+	# libexec $1: path_to_symlink
+	if [[ -f "${HOST_PREFIX}/etc/webdriver.sh/${1}" ]]; then
+		"${HOST_PREFIX}/etc/webdriver.sh/${1}"
 		return $?
 	else
 		return 1
