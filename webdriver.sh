@@ -27,6 +27,8 @@ if ! $grep -qe "10.13" <<< "$MACOS_PRODUCT_VERSION"; then
 	printf 'Unsupported macOS version'; exit 1; fi
 if ! LOCAL_BUILD=$(/usr/bin/sw_vers -buildVersion); then
 	printf 'sw_vers error'; exit $?; fi
+/bin/ls -la "$0" | $grep -qi cellar && HOST_PREFIX=$(brew --prefix 2> /dev/null) \
+	|| HOST_PREFIX=/usr/local
 	
 # SIP
 declare KEXT_ALLOWED=false FS_ALLOWED=false
@@ -55,10 +57,14 @@ if [[ $BASENAME =~ "swebdriver" ]]; then
 	OPT_SYSTEM=true
 	OPT_YES=true
 else
+	SETTINGS_PATH="$HOST_PREFIX/etc/webdriver.sh/settings.conf"
 	set --
 	for arg in "${RAW_ARGS[@]}"
 	do
 		case "$arg" in
+		@(|-|--)show-settings)
+			/usr/bin/open -R "$SETTINGS_PATH"
+			exit $?;;
 		@(|-|--)help)
 			set -- "$@" "-h";;
 		@(|-|--)list)
@@ -171,11 +177,6 @@ INSTALLER_PKG="${TMP_DIR}/$($uuidgen)"
 EXTRACTED_PKG_DIR="${TMP_DIR}/$($uuidgen)"
 DRIVERS_PKG="${TMP_DIR}/com.nvidia.web-driver.pkg"
 DRIVERS_ROOT="${TMP_DIR}/$($uuidgen)"
-if /bin/ls -la "$0" | $grep -qi cellar && HOST_PREFIX=$(brew --prefix 2> /dev/null); then
-	true
-else
-	HOST_PREFIX=/usr/local
-fi
 
 function s() {
 	# s $@: args... 
