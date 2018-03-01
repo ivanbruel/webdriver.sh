@@ -202,7 +202,13 @@ class CloverSettings {
                                 /* Merge into existing, try to remove duplicates */
                                 let duplicates: IndexSet? = kextsToPatch?.indexesOfObjects(options: [], passingTest: { (constraint, idx, stop) in
                                         if let dict = constraint as? NSDictionary {
-                                                if dict[CloverKeys.Find.string] as? Data == find && dict[CloverKeys.Name.string] as? String == name {
+                                                let test: String? = dict[CloverKeys.Comment.string] as? String
+                                                if let commentString: String = test {
+                                                        if commentString.contains("webdriver.sh: ") {
+                                                                return true
+                                                        }
+                                                }
+                                                if (dict[CloverKeys.Find.string] as? Data == find && dict[CloverKeys.Name.string] as? String == name) {
                                                         return true
                                                 }
                                         }

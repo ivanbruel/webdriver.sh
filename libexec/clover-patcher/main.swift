@@ -24,7 +24,7 @@ import Foundation
 let settings = CloverSettings()
 let findData = Data.init(bytes: [0x4e, 0x56, 0x44, 0x41, 0x52, 0x65, 0x71, 0x75, 0x69, 0x72, 0x65, 0x64, 0x4f, 0x53, 0x00])
 let replaceData = Data.init(bytes: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
-let error = settings?.kextsToPatch(name: "NVDAStartupWeb", find: findData, replace: replaceData, comment: "Disable NVIDIA Required OS", disabled: false)
+let error = settings?.kextsToPatch(name: "NVDAStartupWeb", find: findData, replace: replaceData, comment: "webdriver.sh: Disable NVIDIA Required OS", disabled: false)
 if let result: Bool = error, result == true {
         exit(0)
 } else {
