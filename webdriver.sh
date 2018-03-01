@@ -27,8 +27,6 @@ if ! $grep -qe "10.13" <<< "$MACOS_PRODUCT_VERSION"; then
 	printf 'Unsupported macOS version'; exit 1; fi
 if ! LOCAL_BUILD=$(/usr/bin/sw_vers -buildVersion); then
 	printf 'sw_vers error'; exit $?; fi
-$grep -qiE -e "nvdastartupweb.*allowed" <(/usr/sbin/ioreg -p IODeviceTree -c IOService -k boot-log -d 1 -r \
-	| $grep boot-log | /usr/bin/awk -v FS="(<|>)" '{print $2}' | /usr/bin/xxd -r -p) && CLOVER_PATCH=1
 	
 # SIP
 declare KEXT_ALLOWED=false FS_ALLOWED=false
@@ -41,12 +39,13 @@ fi
 DRIVERS_DIR_HINT="NVWebDrivers.pkg"
 STARTUP_KEXT="/Library/Extensions/NVDAStartupWeb.kext"
 EGPU_KEXT="/Library/Extensions/NVDAEGPUSupport.kext"
+FAKE_SMC="org.netkas.FakeSMC"
 ERR_PLIST_READ="Couldn't read a required value from a property list"
 ERR_PLIST_WRITE="Couldn't set a required value in a property list"
 SET_NVRAM="/usr/sbin/nvram nvda_drv=1%00"
 UNSET_NVRAM="/usr/sbin/nvram -d nvda_drv"
 declare CHANGES_MADE=false RESTART_REQUIRED=false REINSTALL_MESSAGE=false
-declare -i EXIT_ERROR=0 COMMAND_COUNT=0
+declare -i EXIT_ERROR=0 COMMAND_COUNT=0 CLOVER_AUTO_PATCH=1
 declare OPT_REINSTALL=false OPT_SYSTEM=false OPT_ALL=false OPT_YES=false
 
 if [[ $BASENAME =~ "swebdriver" ]]; then
@@ -223,16 +222,26 @@ function warning() {
 
 function etc() {
 	# etc $1: path_to_script
-	if [[ -f "${HOST_PREFIX}${1}" ]]; then
+	if [[ -f "${HOST_PREFIX}/etc/webdriver.sh/${1}" ]]; then
 		# shellcheck source=/dev/null
-		source "${HOST_PREFIX}${1}"
+		source "${HOST_PREFIX}/etc/webdriver.sh/${1}"
+	fi
+}
+
+function libexec() {
+	# libexec $1: path_to_binary
+	if [[ -f "${HOST_PREFIX}/libexec/webdriver.sh/${1}" ]]; then
+		"${HOST_PREFIX}/libexec/webdriver.sh/${1}"
+		return $?
+	else
+		return 1
 	fi
 }
 
 function scpt() {
 	# scpt $1: path_to_script
-	if [[ -f "${HOST_PREFIX}${1}" ]]; then
-		/usr/bin/osascript  "${HOST_PREFIX}${1}" > /dev/null 2>&1
+	if [[ -f "${HOST_PREFIX}/etc/webdriver.sh/${1}" ]]; then
+		/usr/bin/osascript  "${HOST_PREFIX}/etc/webdriver.sh/${1}" > /dev/null 2>&1
 	fi
 }
 
@@ -245,7 +254,7 @@ function uninstall_drivers() {
 	# shellcheck disable=SC2086
 	s rm -rf "${REMOVE_LIST[@]}"
 	s pkgutil --forget com.nvidia.web-driver
-	etc "/etc/webdriver.sh/uninstall.conf"
+	etc "uninstall.conf"
 }
 
 function caches_error() {
@@ -353,6 +362,19 @@ function match_build() {
 	return 1
 }
 
+# Load settings
+
+etc "settings.conf"
+
+# Clover patch
+
+if kextstat -b "$FAKE_SMC" | $grep -q "$FAKE_SMC"; then
+	$grep -qiE -e "nvdastartupweb.*allowed" <(/usr/sbin/ioreg -p IODeviceTree -c IOService -k boot-log -d 1 -r \
+		| $grep boot-log | /usr/bin/awk -v FS="(<|>)" '{print $2}' | /usr/bin/xxd -r -p) && CLOVER_PATCH=1
+	[[ $CLOVER_AUTO_PATCH -eq 1 ]] && [[ $CLOVER_PATCH -ne 1 ]] && \
+		s libexec "clover-patcher" && CLOVER_PATCH=1
+fi
+
 # COMMAND CMD_REQUIRED_OS
 
 if [[ $COMMAND == "CMD_REQUIRED_OS" ]]; then
@@ -387,10 +409,6 @@ if [[ $COMMAND == "CMD_UNINSTALL" ]]; then
 	$UNSET_NVRAM
 	exit_after_install
 fi
-
-# Load settings
-
-etc "/etc/webdriver.sh/settings.conf"
 
 # UPDATER/INSTALLER
 
@@ -647,7 +665,7 @@ else
 	/usr/bin/rsync -r "${DRIVERS_ROOT}"/* /
 	NEEDS_KEXTCACHE=true
 fi
-etc "/etc/webdriver.sh/post-install.conf"
+etc "post-install.conf"
 
 # Check extensions are loadable
 
@@ -657,7 +675,7 @@ if [[ $? -eq 27 ]]; then
 	printf 'Allow NVIDIA Corporation in security preferences to continue...\n'
 	NEEDS_KEXTCACHE=true
 	while ! s /usr/bin/kextutil -tn "$STARTUP_KEXT"; do
-		scpt "/etc/webdriver.sh/open-security-preferences.scpt"
+		scpt "open-security-preferences.scpt"
 		sleep 5
 	done
 fi
