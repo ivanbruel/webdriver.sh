@@ -41,7 +41,6 @@ fi
 DRIVERS_DIR_HINT="NVWebDrivers.pkg"
 STARTUP_KEXT="/Library/Extensions/NVDAStartupWeb.kext"
 EGPU_KEXT="/Library/Extensions/NVDAEGPUSupport.kext"
-FAKE_SMC="org.netkas.FakeSMC"
 ERR_PLIST_READ="Couldn't read a required value from a property list"
 ERR_PLIST_WRITE="Couldn't set a required value in a property list"
 SET_NVRAM="/usr/sbin/nvram nvda_drv=1%00"
@@ -365,7 +364,7 @@ etc "settings.conf"
 
 # Clover patch
 
-if kextstat -b "$FAKE_SMC" | $grep -q "$FAKE_SMC"; then
+if kextstat | $grep -qiE -e "fakesmc"; then
 	$grep -qiE -e "nvdastartupweb.*allowed" <(/usr/sbin/ioreg -p IODeviceTree -c IOService -k boot-log -d 1 -r \
 		| $grep boot-log | /usr/bin/awk -v FS="(<|>)" '{print $2}' | /usr/bin/xxd -r -p) && CLOVER_PATCH=1
 	[[ $CLOVER_AUTO_PATCH -eq 1 ]] && [[ $CLOVER_PATCH -ne 1 ]] && \
