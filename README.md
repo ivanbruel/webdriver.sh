@@ -9,6 +9,11 @@
 
 Bash script for managing NVIDIA's web drivers on macOS High Sierra.
 
+- The easiest way to install NVIDIA's drivers
+- Quickly roll back to a previous driver version with ```webdriver list```
+- Automatically applies a Clover kext patch - use any driver version (Clover systems)
+- Or patches the drivers to load on your current macOS version (non-Clover systems)
+
 <br/>
 
 ## Installing
@@ -113,7 +118,7 @@ No, you can install it at any point via NVIDIA's installer package - webdriver.s
 
 #### Do I need to disable SIP?
 
-No, but you'll want to if you are modifying the drivers to load - making changes to a kext's Info.plist excludes it from the prelinked kernel the next time it's built. Clover users may try [this kext patch](https://github.com/vulgo/webdriver.sh/blob/master/etc/clover-patch.plist) which disables NVIDIA's OS checks. See also: [WebDriverStartup](https://github.com/vulgo/WebDriverStartup).
+No, but you'll want to if you are modifying the drivers to load - making changes to a kext's Info.plist excludes it from the prelinked kernel the next time it's built.
 
 #### Will webdriver.sh mess with NVIDIA's installer or 'repackage' the driver?
 
