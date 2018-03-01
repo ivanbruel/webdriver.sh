@@ -27,8 +27,9 @@ if ! $grep -qe "10.13" <<< "$MACOS_PRODUCT_VERSION"; then
 	printf 'Unsupported macOS version'; exit 1; fi
 if ! LOCAL_BUILD=$(/usr/bin/sw_vers -buildVersion); then
 	printf 'sw_vers error'; exit $?; fi
-/bin/ls -la "$0" | $grep -qi cellar && HOST_PREFIX=$(brew --prefix 2> /dev/null) \
-	|| HOST_PREFIX=/usr/local
+LIBEXEC="etc"
+{ /bin/ls -la "$0" | $grep -qi cellar && HOST_PREFIX=$(brew --prefix 2> /dev/null); } \
+	|| HOST_PREFIX=/usr/local; LIBEXEC="libexec"
 	
 # SIP
 declare KEXT_ALLOWED=false FS_ALLOWED=false
@@ -224,8 +225,8 @@ function etc() {
 
 function libexec() {
 	# libexec $1: path_to_symlink
-	if [[ -f "${HOST_PREFIX}/etc/webdriver.sh/${1}" ]]; then
-		"${HOST_PREFIX}/etc/webdriver.sh/${1}"
+	if [[ -f "${HOST_PREFIX}/${LIBEXEC}/webdriver.sh/${1}" ]]; then
+		"${HOST_PREFIX}/${LIBEXEC}/webdriver.sh/${1}"
 		return $?
 	else
 		return 1
