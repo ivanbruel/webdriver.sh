@@ -88,7 +88,7 @@ function usage() {
 	printf '   --remove  or  -r          uninstall NVIDIA web drivers\n'
 	printf "                 -m [BUILD]  apply Info.plist patch for NVDARequiredOS"'\n'
 	printf '                 -f          continue when same version already installed\n'
-	exit $status
+	exit $(( status ))
 }
 
 function version() {
@@ -99,8 +99,10 @@ function version() {
 	exit 0
 }
 
-while getopts ":hvlu:rm:fa!:#:Y" OPTION; do
+while getopts ":hvlu:rm:fa!:#:Yc" OPTION; do
 	case $OPTION in
+	"c")
+		printf 'Option -c has been removed\n';;
 	"h")
 		usage;;
 	"v")
@@ -270,9 +272,9 @@ function update_caches() {
 	local RESULT
 	printf '%bUpdating caches...%b\n' "$B" "$R"
 	RESULT=$(/usr/sbin/kextcache -v 2 -i / 2>&1)
-	$grep -qe "$PLK" <<< "$RESULT" || caches_error "$ERR_PLK"
-	$grep -qe "$SLE" <<< "$RESULT" || caches_error "$ERR_SLE"
-	$grep -qe "$LE" <<< "$RESULT" || caches_error "$ERR_LE"
+	$grep -qie "$PLK" <<< "$RESULT" || caches_error "$ERR_PLK"
+	$grep -qie "$SLE" <<< "$RESULT" || caches_error "$ERR_SLE"
+	$grep -qie "$LE" <<< "$RESULT" || caches_error "$ERR_LE"
 	(( EXIT_ERROR != 0 )) && printf '\nTo try again use:\n%bsudo kextcache -i /%b\n\n' "$B" "$R"	 
 }
 
