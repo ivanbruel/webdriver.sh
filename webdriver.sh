@@ -464,7 +464,7 @@ else
 			[[ $count -gt $(( tl - 5 )) || $count -gt 15 ]] && FORMAT_COMMAND="/usr/bin/column"
 			VERSION_FORMAT_STRING="%-${VERSION_MAX_WIDTH}s"
 			for (( i = 0; i < count; i += 1 )); do
-				PADDED_INDEX=$(printf '%4s |  ' $(( i + 1 )) )
+				PADDED_INDEX=$(printf '%6s.  ' $(( i + 1 )) )
 				ROW="$PADDED_INDEX"
 				# shellcheck disable=SC2059
 				PADDED_VERSION=$(printf "$VERSION_FORMAT_STRING" "${LIST_VERSIONS[$i]}")
