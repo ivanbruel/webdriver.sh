@@ -230,6 +230,8 @@ function libexec() {
 		"${HOST_PREFIX}/${LIBEXEC}/webdriver.sh/${1}"
 		return $?
 	else
+		local MESSAGE="Executable not found: ${HOST_PREFIX}/${LIBEXEC}/$1"
+		warning "$MESSAGE"
 		return 1
 	fi
 }
