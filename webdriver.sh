@@ -360,11 +360,23 @@ etc "settings.conf"
 
 # Clover patch
 
-if kextstat | $grep -qiE -e "fakesmc"; then
-	$grep -qiE -e "nvdastartupweb.*allowed" <(/usr/sbin/ioreg -p IODeviceTree -c IOService -k boot-log -d 1 -r \
-		| $grep boot-log | /usr/bin/awk -v FS="(<|>)" '{print $2}' | /usr/bin/xxd -r -p) && CLOVER_PATCH=1
-	[[ $CLOVER_AUTO_PATCH -eq 1 ]] && [[ $CLOVER_PATCH -ne 1 ]] && \
-		s libexec "clover-patcher" && CLOVER_PATCH=1
+if { kextstat | $grep -qiE -e "fakesmc"; } && (( CLOVER_AUTO_PATCH == 1)); then
+	BOOT_LOG=$(/usr/sbin/ioreg -p IODeviceTree -c IOService -k boot-log -d 1 -r | $grep boot-log \
+		| /usr/bin/awk -v FS="(<|>)" '{print $2}' | /usr/bin/xxd -r -p)
+	$grep -qiE -e 'selfdirpath.*\\efi\\clover' <<< "$BOOT_LOG" && CLOVER_DIR=1
+	if $grep -qiE -e "nvdastartupweb.*allowed" <<< "$BOOT_LOG"; then
+		CLOVER_PATCH=1
+	elif $grep -qiE -e "nvdastartupweb.*disabled.*user" <<< "$BOOT_LOG"; then
+		CLOVER_PATCH=-1
+	fi
+	(( CLOVER_DIR == 1 && CLOVER_PATCH != 1 && CLOVER_PATCH != -1 )) && libexec "clover-patcher" && CLOVER_PATCH=1
+	if (( CLOVER_DIR == 1 && CLOVER_PATCH == -1 )); then
+		if ask "Enable Clover patch?"; then
+			libexec "clover-patcher" && CLOVER_PATCH=1
+		else
+			CLOVER_PATCH=0
+		fi
+	fi
 fi
 
 # COMMAND CMD_REQUIRED_OS
