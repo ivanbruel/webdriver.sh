@@ -45,7 +45,8 @@ ERR_PLIST_WRITE="Couldn't set a required value in a property list"
 SET_NVRAM="/usr/sbin/nvram nvda_drv=1%00"
 UNSET_NVRAM="/usr/sbin/nvram -d nvda_drv"
 declare CHANGES_MADE=false RESTART_REQUIRED=false REINSTALL_MESSAGE=false
-declare -i EXIT_ERROR=0 COMMAND_COUNT=0 CLOVER_AUTO_PATCH=1
+declare -i EXIT_ERROR=0 COMMAND_COUNT=0 DONT_INVALIDATE_KEXTS=0
+declare -i CLOVER_AUTO_PATCH=1 CLOVER_PATCH=0 CLOVER_DIR=0
 declare OPT_REINSTALL=false OPT_SYSTEM=false OPT_ALL=false OPT_YES=false
 
 if [[ $BASENAME =~ "swebdriver" ]]; then
@@ -325,7 +326,7 @@ function set_required_os() {
 }
 
 function check_required_os() {
-	{ $OPT_YES || [[ $DONT_INVALIDATE_KEXTS -eq 1 ]] || [[ $CLOVER_PATCH -eq 1 ]]; } && return 0
+	{ $OPT_YES || (( DONT_INVALIDATE_KEXTS == 1 )) || (( CLOVER_PATCH == 1 )); } && return 0
 	local RESULT KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
 	if [[ -f ${STARTUP_KEXT}/Contents/Info.plist ]]; then
 		RESULT=$(plistb "Print $KEY" "${STARTUP_KEXT}/Contents/Info.plist") || e "$ERR_PLIST_READ"
@@ -374,8 +375,8 @@ if [[ $COMMAND == "CMD_REQUIRED_OS" ]]; then
 		$UNSET_NVRAM
 		exit_quietly
 	else
-		if [[ $CLOVER_PATCH -eq 1 ]]; then
-			warning 'NVDAStartupWeb is already being patched by Clover'
+		if (( CLOVER_PATCH == 1 )); then
+			warning "NVDAStartupWeb is already being patched by Clover"
 			ask 'Continue?' || exit_quietly
 		fi
 		set_required_os "$OPT_REQUIRED_OS"
