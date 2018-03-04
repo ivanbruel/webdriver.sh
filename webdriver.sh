@@ -306,25 +306,20 @@ function plistb() {
 
 function set_required_os() {
 	# set_required_os $1: target_version
-	local RESULT TARGET_BUILD="$1" KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
-	RESULT=$(plistb "Print $KEY" "${STARTUP_KEXT}/Contents/Info.plist") || e "$ERR_PLIST_READ"
-	if [[ $RESULT == "$TARGET_BUILD" ]]; then
-		printf 'NVDARequiredOS already set to %s\n' "$TARGET_BUILD"
-	else 
-		CHANGES_MADE=true
-		printf '%bSetting NVDARequiredOS to %s...%b\n' "$B" "$TARGET_BUILD" "$R"
-		plistb "Set $KEY $TARGET_BUILD" "${STARTUP_KEXT}/Contents/Info.plist" || e "$ERR_PLIST_WRITE"
-	fi
-	if [[ -f "${EGPU_KEXT}/Contents/Info.plist" ]]; then
-		RESULT=$(plistb "Print $KEY" "${EGPU_KEXT}/Contents/Info.plist") || e "$ERR_PLIST_READ"
-		if [[ $RESULT == "$TARGET_BUILD" ]]; then
-			printf 'Found NVDAEGPUSupport.kext, already set to %s\n' "$TARGET_BUILD"
-		else
-			CHANGES_MADE=true
-			printf '%bFound NVDAEGPUSupport.kext, setting NVDARequiredOS to %s...%b\n' "$B" "$TARGET_BUILD" "$R"
-			plistb "Set $KEY $TARGET_BUILD" "${EGPU_KEXT}/Contents/Info.plist"  || e "$ERR_PLIST_WRITE"
+	KEXTS="${STARTUP_KEXT} ${EGPU_KEXT}"
+	local NVDA_REQUIRED_OS TARGET_BUILD="$1" KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
+	for KEXT in "${KEXTS[@]}"; do
+		if [[ -f "${KEXT}/Contents/Info.plist" ]]; then
+			NVDA_REQUIRED_OS=$(plistb "Print ${KEY}" "${KEXT}/Contents/Info.plist") || e "$ERR_PLIST_READ"
+			if [[ $NVDA_REQUIRED_OS == "$TARGET_BUILD" ]]; then
+				printf '%s: Already set to %b%s%b\n' "$(basename "$KEXT")"  "$B" "$TARGET_BUILD" "$R"
+		        else
+				printf '%s: %s -> %b%s%b\n' "$(basename "$KEXT")" "$NVDA_REQUIRED_OS" "$B" "$TARGET_BUILD" "$R"
+				CHANGES_MADE=true
+				plistb "Set ${KEY} ${TARGET_BUILD}" "${KEXT}/Contents/Info.plist" || e "$ERR_PLIST_WRITE"
+			fi
 		fi
-	fi
+	done
 }
 
 function check_required_os() {
@@ -428,7 +423,6 @@ elif [[ $COMMAND == "CMD_FILE" ]]; then
 else
 	# No URL / filepath
 	if [[ $COMMAND == "CMD_LIST" ]]; then
-		LOCAL_MAJAOR=${LOCAL_BUILD:0:2}
 		declare -a LIST_URLS LIST_VERSIONS LIST_CHECKSUMS LIST_BUILDS
 		declare -i VERSION_MAX_WIDTH
 	fi
@@ -450,7 +444,7 @@ else
 			REMOTE_VERSION=$(plistb "Print :updates:${i}:version" "$UPDATES_PLIST")
 			REMOTE_CHECKSUM=$(plistb "Print :updates:${i}:checksum" "$UPDATES_PLIST")
 			if [[ $COMMAND == "CMD_LIST" ]]; then
-				if [[ $LOCAL_MAJAOR == "$REMOTE_MAJOR" ]] || ( $OPT_ALL && match_build "$LOCAL_MAJAOR" "$REMOTE_MAJOR" ); then
+				if [[ $LOCAL_MAJOR == "$REMOTE_MAJOR" ]] || ( $OPT_ALL && match_build "$LOCAL_MAJOR" "$REMOTE_MAJOR" ); then
 					LIST_URLS+=("$REMOTE_URL")
 					LIST_VERSIONS+=("$REMOTE_VERSION")
 					LIST_CHECKSUMS+=("$REMOTE_CHECKSUM")
@@ -464,6 +458,7 @@ else
 		fi
 	done;
 	if [[ $COMMAND == "CMD_LIST" ]]; then
+		MACOS_PRODUCT_VERSION="$(/usr/bin/sw_vers -productVersion)"
 		while true; do
 			printf '%bCurrent driver:%b ' "$B" "$R"
 			if [[ $INSTALLED_VERSION ]]; then
@@ -478,11 +473,11 @@ else
 			[[ $count -gt $(( tl - 5 )) || $count -gt 15 ]] && FORMAT_COMMAND="/usr/bin/column"
 			VERSION_FORMAT_STRING="%-${VERSION_MAX_WIDTH}s"
 			for (( i = 0; i < count; i += 1 )); do
-				PADDED_INDEX=$(printf '%6s.  ' $(( i + 1 )) )
-				ROW="$PADDED_INDEX"
+				ROW="$(printf '%6s.' $(( i + 1 )))"
+				ROW+="  "
 				# shellcheck disable=SC2059
-				PADDED_VERSION=$(printf "$VERSION_FORMAT_STRING" "${LIST_VERSIONS[$i]}")
-				ROW+="$PADDED_VERSION  "
+				ROW+="$(printf "$VERSION_FORMAT_STRING" "${LIST_VERSIONS[$i]}")"
+				ROW+="  "
 				ROW+="${LIST_BUILDS[$i]}"
 				printf '%s\n' "$ROW"
 			done | $FORMAT_COMMAND
