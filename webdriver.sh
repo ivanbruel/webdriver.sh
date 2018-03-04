@@ -17,16 +17,16 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.2.22"
+SCRIPT_VERSION="1.3.0"
 grep="/usr/bin/grep"
 shopt -s nullglob extglob
 BASENAME=$(/usr/bin/basename "$0")
 RAW_ARGS=("$@")
-MACOS_PRODUCT_VERSION=$(/usr/bin/sw_vers -productVersion)
-if ! $grep -qe "10.13" <<< "$MACOS_PRODUCT_VERSION"; then
+if ! LOCAL_BUILD=$(/usr/sbin/sysctl -n kern.osversion); then
+	printf 'sysctl error'; exit $?; fi
+LOCAL_MAJOR="${LOCAL_BUILD:0:2}"
+if (( LOCAL_MAJOR != 17 )); then
 	printf 'Unsupported macOS version'; exit 1; fi
-if ! LOCAL_BUILD=$(/usr/bin/sw_vers -buildVersion); then
-	printf 'sw_vers error'; exit $?; fi
 LIBEXEC="etc"
 { /bin/ls -la "$0" | $grep -qi cellar && HOST_PREFIX=$(brew --prefix 2> /dev/null); } \
 	|| HOST_PREFIX=/usr/local; LIBEXEC="libexec"
