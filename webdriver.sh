@@ -30,8 +30,11 @@ if (( LOCAL_MAJOR != 17 )); then
 	printf 'Unsupported macOS version'; exit 1; fi
 if [[ ! -f "${DIRNAME}/.portable" ]]; then
 	LIBEXEC="/etc/webdriver.sh/"
-	{ /bin/ls -la "$0" | $grep -qi cellar && HOST_PREFIX=$(brew --prefix 2> /dev/null); } \
-		|| HOST_PREFIX=/usr/local; LIBEXEC="/libexec/webdriver.sh/"
+	if /bin/ls -la "$0" | $grep -qi cellar; then
+		HOST_PREFIX=$(brew --prefix 2> /dev/null)
+	else
+		HOST_PREFIX=/usr/local; LIBEXEC="/libexec/webdriver.sh/"
+	fi
 else
 	HOST_PREFIX="${DIRNAME}"; LIBEXEC="/"
 fi
@@ -184,13 +187,13 @@ DRIVERS_PKG="${TMP_DIR}/com.nvidia.web-driver.pkg"
 DRIVERS_ROOT="${TMP_DIR}/$($uuidgen)"
 
 function s() {
-	# s $@: args... 
+	# $@: args... 
 	"$@" > /dev/null 2>&1
 	return $?
 }
 
 function e() {
-	# e $1: message, $2: exit_code
+	# $1: message, $2: exit_code
 	s rm -rf "$TMP_DIR"
 	if [[ -z $2 ]]; then
 		printf '%bError%b: %s\n' "$U" "$R" "$1"
@@ -218,20 +221,18 @@ function exit_after_changes() {
 }
 
 function warning() {
-	# warning $1: message
+	# $1: message
 	printf '%bWarning%b: %s\n' "$U" "$R" "$1" 
 }
 
 function etc() {
-	# etc $1: path_to_script
-	if [[ -f "${HOST_PREFIX}/etc/webdriver.sh/${1}" ]]; then
-		# shellcheck source=/dev/null
-		source "${HOST_PREFIX}/etc/webdriver.sh/${1}"
-	fi
+	# $1: path to script
+	# shellcheck source=/dev/null
+	[[ -f "${HOST_PREFIX}/etc/webdriver.sh/${1}" ]] && source "${HOST_PREFIX}/etc/webdriver.sh/${1}"
 }
 
 function libexec() {
-	# libexec $1: path_to_symlink
+	# $1: path to symlink
 	if [[ -f "${HOST_PREFIX}${LIBEXEC}${1}" ]]; then
 		"${HOST_PREFIX}${LIBEXEC}${1}"
 		return $?
@@ -243,10 +244,9 @@ function libexec() {
 }
 
 function scpt() {
-	# scpt $1: path_to_script
-	if [[ -f "${HOST_PREFIX}/etc/webdriver.sh/${1}" ]]; then
-		/usr/bin/osascript  "${HOST_PREFIX}/etc/webdriver.sh/${1}" > /dev/null 2>&1
-	fi
+	# $1: path to applescript
+	[[ -f "${HOST_PREFIX}/etc/webdriver.sh/${1}" ]] \
+		&& /usr/bin/osascript  "${HOST_PREFIX}/etc/webdriver.sh/${1}" > /dev/null 2>&1
 }
 
 function uninstall_drivers() {
@@ -262,7 +262,7 @@ function uninstall_drivers() {
 }
 
 function caches_error() {
-	# caches_error $1: warning_message
+	# $1: warning message
 	warning "$1"
 	EXIT_ERROR=1
 	RESTART_REQUIRED=false
@@ -273,23 +273,23 @@ function update_caches() {
 		warning "Caches are not being updated"
 		return 0
 	fi
-	local PLK="Created prelinked kernel"
-	local ERR_PLK="There was a problem creating the prelinked kernel"
-	local SLE="caches updated for /System/Library/Extensions"
+	local PK="CREATED PRELINKED KERNEL"
+	local ERR_PK="There was a problem creating the prelinked kernel"
+	local SLE="CACHES UPDATED FOR /SYSTEM/LIBRARY/EXTENSIONS"
 	local ERR_SLE="There was a problem updating directory caches for /S/L/E"
-	local LE="caches updated for /Library/Extensions"
+	local LE="CACHES UPDATED FOR /LIBRARY/EXTENSIONS"
 	local ERR_LE="There was a problem updating directory caches for /L/E"
 	local RESULT
 	printf '%bUpdating caches...%b\n' "$B" "$R"
 	RESULT=$(/usr/sbin/kextcache -v 2 -i / 2>&1)
-	$grep -qie "$PLK" <<< "$RESULT" || caches_error "$ERR_PLK"
+	$grep -qie "$PK" <<< "$RESULT" || caches_error "$ERR_PK"
 	$grep -qie "$SLE" <<< "$RESULT" || caches_error "$ERR_SLE"
 	$grep -qie "$LE" <<< "$RESULT" || caches_error "$ERR_LE"
 	(( EXIT_ERROR != 0 )) && printf '\nTo try again use:\n%bsudo kextcache -i /%b\n\n' "$B" "$R"	 
 }
 
 function ask() {
-	# ask $1: message
+	# $1: prompt message
 	local ASK
 	printf '%b%s%b' "$B" "$1" "$R"
 	read -n 1 -srp " [y/N]" ASK
@@ -302,7 +302,7 @@ function ask() {
 }
 
 function plistb() {
-	# plistb $1: command, $2: file
+	# $1: plistbuddy command, $2: property list
 	local RESULT
 	[[ ! -f "$2" ]] && return 1
 	! RESULT=$(/usr/libexec/PlistBuddy -c "$1" "$2" 2> /dev/null) && return 1
@@ -311,8 +311,8 @@ function plistb() {
 }
 
 function set_required_os() {
-	# set_required_os $1: target_version
-	KEXTS="${STARTUP_KEXT} ${EGPU_KEXT}"
+	# $1: target macos version
+	KEXTS=("${STARTUP_KEXT}" "${EGPU_KEXT}")
 	local NVDA_REQUIRED_OS TARGET_BUILD="$1" KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
 	for KEXT in "${KEXTS[@]}"; do
 		if [[ -f "${KEXT}/Contents/Info.plist" ]]; then
@@ -330,27 +330,25 @@ function set_required_os() {
 
 function check_required_os() {
 	{ $OPT_YES || (( DONT_INVALIDATE_KEXTS == 1 )) || (( CLOVER_PATCH == 1 )); } && return 0
+	[[ ! -f "${STARTUP_KEXT}/Contents/Info.plist" ]] && return 0
 	local RESULT KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
-	if [[ -f ${STARTUP_KEXT}/Contents/Info.plist ]]; then
-		RESULT=$(plistb "Print $KEY" "${STARTUP_KEXT}/Contents/Info.plist") || e "$ERR_PLIST_READ"
-		if [[ $RESULT != "$LOCAL_BUILD" ]]; then
-			ask "Modify installed driver for the current macOS version?" || return 0
-			set_required_os "$LOCAL_BUILD"
-			RESTART_REQUIRED=true
-			$KEXT_ALLOWED || warning "Disable SIP, run 'kextcache -i /' to allow modified drivers to load"
-			return 1
-		fi
-	fi
+	RESULT=$(plistb "Print $KEY" "${STARTUP_KEXT}/Contents/Info.plist") || e "$ERR_PLIST_READ"
+	[[ $RESULT == "$LOCAL_BUILD" ]] && return 0
+	ask "Modify installed driver for the current macOS version?" || return 0
+	set_required_os "$LOCAL_BUILD"
+	RESTART_REQUIRED=true
+	$KEXT_ALLOWED || warning "Disable SIP, run 'kextcache -i /' to allow modified drivers to load"
+	return 1
 }
 
 function sql_add_kext() {
-	# sql_add_kext $1:bundle_id
+	# $1: bundle id
 	SQL+="insert or replace into kext_policy (team_id, bundle_id, allowed, developer_name, flags) "
 	SQL+="values (\"6KR3T733EC\",\"${1}\",1,\"NVIDIA Corporation\",1); "
 }
 
 function match_build() {
-	# match_build $1:local $2:remote
+	# $1: local, $2: remote
 	local -i LOCAL=$1 REMOTE=$2
 	[[ $REMOTE -eq $(( LOCAL + 1 )) ]] && return 0
 	[[ $REMOTE -ge 17 && $REMOTE -eq $(( LOCAL - 1 )) ]] && return 0
@@ -450,7 +448,8 @@ else
 			REMOTE_VERSION=$(plistb "Print :updates:${i}:version" "$UPDATES_PLIST")
 			REMOTE_CHECKSUM=$(plistb "Print :updates:${i}:checksum" "$UPDATES_PLIST")
 			if [[ $COMMAND == "CMD_LIST" ]]; then
-				if [[ $LOCAL_MAJOR == "$REMOTE_MAJOR" ]] || ( $OPT_ALL && match_build "$LOCAL_MAJOR" "$REMOTE_MAJOR" ); then
+				if [[ $LOCAL_MAJOR == "$REMOTE_MAJOR" ]] \
+				|| ( $OPT_ALL && match_build "$LOCAL_MAJOR" "$REMOTE_MAJOR" ); then
 					LIST_URLS+=("$REMOTE_URL")
 					LIST_VERSIONS+=("$REMOTE_VERSION")
 					LIST_CHECKSUMS+=("$REMOTE_CHECKSUM")

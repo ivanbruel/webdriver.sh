@@ -14,7 +14,7 @@
 #### Unadvertised options in 1.3.0
 
 - -a	used with --list, -l, may show additional drivers
-- -!	argument assigned to CONFIG_ARGS for use in etc/*.conf scripts
+- -!	argument assigned to CONFIG_ARGS for use in etc/~*.conf scripts
 - -#	provide SHA512 checksum e.g. for --url, -u option
 - -Y	no user interaction (installs/updates)
 
@@ -24,4 +24,4 @@ exactly ```swebdriver -u URL``` updates NVIDIA's drivers, then does ```softwareu
 
 #### Portable download
 
-```source <(curl -s https://raw.githubusercontent.com/vulgo/webdriver.sh/master/get)```
+```source <(curl -s https://raw.githubusercontent.com/vulgo/webdriver.sh/v1.3.0/get)```
