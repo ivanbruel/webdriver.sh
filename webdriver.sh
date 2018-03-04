@@ -21,15 +21,20 @@ SCRIPT_VERSION="1.3.0"
 grep="/usr/bin/grep"
 shopt -s nullglob extglob
 BASENAME=$(/usr/bin/basename "$0")
+DIRNAME=$(/usr/bin/dirname "$0")
 RAW_ARGS=("$@")
 if ! LOCAL_BUILD=$(/usr/sbin/sysctl -n kern.osversion); then
 	printf 'sysctl error'; exit $?; fi
 LOCAL_MAJOR="${LOCAL_BUILD:0:2}"
 if (( LOCAL_MAJOR != 17 )); then
 	printf 'Unsupported macOS version'; exit 1; fi
-LIBEXEC="etc"
-{ /bin/ls -la "$0" | $grep -qi cellar && HOST_PREFIX=$(brew --prefix 2> /dev/null); } \
-	|| HOST_PREFIX=/usr/local; LIBEXEC="libexec"
+if [[ ! -f "${DIRNAME}/.portable" ]]; then
+	LIBEXEC="/etc/webdriver.sh/"
+	{ /bin/ls -la "$0" | $grep -qi cellar && HOST_PREFIX=$(brew --prefix 2> /dev/null); } \
+		|| HOST_PREFIX=/usr/local; LIBEXEC="/libexec/webdriver.sh/"
+else
+	HOST_PREFIX="${DIRNAME}"; LIBEXEC="/"
+fi
 	
 # SIP
 declare KEXT_ALLOWED=false FS_ALLOWED=false
@@ -84,7 +89,8 @@ fi
 
 function usage() {
 	local -i status=$1
-	printf 'Usage: %s [-f] [-l|-u|-r|-m|FILE]\n' "$BASENAME"
+	[[ $DIRNAME == "." ]] && BASENAME="./${BASENAME}"
+	printf 'Usage: %s [-f] [-l|-u|-r|-m|FILE]\n' "$BASENAME"	
 	printf '   --list    or  -l          choose which driver to install from a list\n'
 	printf '   --url     or  -u URL      download package from URL and install drivers\n'
 	printf '   --remove  or  -r          uninstall NVIDIA web drivers\n'
@@ -226,11 +232,11 @@ function etc() {
 
 function libexec() {
 	# libexec $1: path_to_symlink
-	if [[ -f "${HOST_PREFIX}/${LIBEXEC}/webdriver.sh/${1}" ]]; then
-		"${HOST_PREFIX}/${LIBEXEC}/webdriver.sh/${1}"
+	if [[ -f "${HOST_PREFIX}${LIBEXEC}${1}" ]]; then
+		"${HOST_PREFIX}${LIBEXEC}${1}"
 		return $?
 	else
-		local MESSAGE="Executable not found: ${HOST_PREFIX}/${LIBEXEC}/$1"
+		local MESSAGE="Executable not found: ${HOST_PREFIX}${LIBEXEC}${1}"
 		warning "$MESSAGE"
 		return 1
 	fi
