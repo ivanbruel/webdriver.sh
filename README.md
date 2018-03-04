@@ -16,18 +16,22 @@ Bash script for managing NVIDIA's web drivers on macOS High Sierra.
 
 <br/>
 
+<pre><code>source&nbsp;<(curl&nbsp;-s&nbsp;https://raw.githubusercontent.com/vulgo/webdriver.sh/v1.3.0/get)</code></pre>
+
+<br/>
+
 ## Installing
 
 Install webdriver.sh with [Homebrew](https://brew.sh)
 
-```
+```shell-script
 brew tap vulgo/repo
 brew install webdriver.sh
 ```
 
 Update to the latest release
 
-```
+```shell-script
 brew upgrade webdriver.sh
 ```
 
@@ -41,7 +45,7 @@ brew upgrade webdriver.sh
 
 ## Install the latest drivers
 
-```
+```shell-script
 webdriver
 ```
 
@@ -51,7 +55,7 @@ Installs/updates to the latest available NVIDIA web drivers for your current ver
 
 ## Choose from a list of drivers
 
-```
+```shell-script
 webdriver --list
 ```
 
@@ -61,13 +65,13 @@ Displays a list of driver versions, choose one to download and install it.
 
 #### Install from local package or URL
 
-```
+```shell-script
 webdriver FILE
 ```
 
 Installs the drivers from package <em>FILE</em> on the local filesystem.
 
-```
+```shell-script
 webdriver -u URL
 ```
 
@@ -77,7 +81,7 @@ Downloads the package at <em>URL</em> and installs the drivers within. There is 
 
 #### Uninstall drivers
 
-```
+```shell-script
 webdriver --remove
 ```
 
@@ -87,7 +91,7 @@ Removes NVIDIA's web drivers from your system.
 
 #### Patch drivers to load on a different version of macOS
 
-```
+```shell-script
 webdriver -m [BUILD]
 ```
 
@@ -97,7 +101,7 @@ Modifies the installed driver's NVDARequiredOS. If no [BUILD] is provided for op
 
 #### Show help
 
-```
+```shell-script
 webdriver --help
 ```
 
