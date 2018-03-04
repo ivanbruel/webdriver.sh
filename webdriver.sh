@@ -367,7 +367,7 @@ if { kextstat | $grep -qiE -e "fakesmc"; } && (( CLOVER_AUTO_PATCH == 1)); then
 		CLOVER_PATCH=-1
 	fi
 	(( CLOVER_DIR == 1 && CLOVER_PATCH != 1 && CLOVER_PATCH != -1 )) && libexec "clover-patcher" && CLOVER_PATCH=1
-	if (( CLOVER_DIR == 1 && CLOVER_PATCH == -1 )); then
+	if (( CLOVER_DIR == 1 && CLOVER_PATCH == -1 )) && ! $OPT_YES; then
 		if ask "Enable Clover patch?"; then
 			libexec "clover-patcher" && CLOVER_PATCH=1
 		else
