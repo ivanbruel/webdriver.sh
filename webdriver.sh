@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.3.0"
+SCRIPT_VERSION="1.4.0"
 grep="/usr/bin/grep"
 shopt -s nullglob extglob
 BASENAME=$(/usr/bin/basename "$0")
@@ -41,7 +41,7 @@ fi
 	
 # SIP
 declare KEXT_ALLOWED=false FS_ALLOWED=false
-$grep -qiE -e "status: disabled|signing: disabled" <(/usr/bin/csrutil status) && KEXT_ALLOWED=true
+/usr/bin/csrutil status | $grep -qiE -e "status: disabled|signing: disabled" && KEXT_ALLOWED=true
 /usr/bin/touch /System 2> /dev/null && FS_ALLOWED=true
 
 test -t 0 && declare R='\e[0m' B='\e[1m' U='\e[4m'
@@ -636,9 +636,10 @@ else
 	# Get unapproved bundle IDs
 	printf '%bExamining extensions...%b\n' "$B" "$R"
 	QUERY="select bundle_id from kext_policy where team_id=\"6KR3T733EC\" and (flags=1 or flags=8)"
-	while IFS= read -r LINE; do
+	/usr/bin/sqlite3 /private/var/db/SystemPolicyConfiguration/KextPolicy "$QUERY" 2> /dev/null \
+	| while IFS= read -r LINE; do
 		APPROVED_BUNDLES+=("$LINE")
-	done < <(/usr/bin/sqlite3 /private/var/db/SystemPolicyConfiguration/KextPolicy "$QUERY" 2> /dev/null)
+	done
 	for MATCH in "${APPROVED_BUNDLES[@]}"; do
 		for index in "${!BUNDLES[@]}"; do
 			if [[ ${BUNDLES[index]} == "$MATCH" ]]; then
@@ -692,6 +693,6 @@ $SET_NVRAM
 if $OPT_SYSTEM; then
 	s rm -rf "$TMP_DIR"
 	printf '%bSystem update...%b\n' "$B" "$R"
-	$grep -iE -e "no updates|restart" <(/usr/sbin/softwareupdate -ir 2>&1) | /usr/bin/tail -1
+	/usr/sbin/softwareupdate -ir 2>&1 | $grep -iE -e "no updates|restart" | /usr/bin/tail -1
 fi
 exit_after_changes "Installation complete."
