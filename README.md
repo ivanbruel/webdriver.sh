@@ -13,6 +13,7 @@ Bash script for managing NVIDIA's web drivers on macOS High Sierra.
 - Quickly roll back to a previous driver version with ```webdriver list```
 - Automatically applies a Clover kext patch - use any driver version (Clover systems)
 - Or patches the drivers to load on your current macOS version (non-Clover systems)
+- Also sets the required build number in NVDAEGPUSupport.kext (EGPU systems)
 
 <br/>
 
