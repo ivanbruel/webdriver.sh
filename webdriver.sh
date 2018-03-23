@@ -651,7 +651,7 @@ fi
 # Install
 
 uninstall_drivers
-declare CHANGES_MADE=true NEEDS_KEXTCACHE=false RESTART_REQUIRED=true
+declare CHANGES_MADE=true WANTS_KEXTCACHE=false RESTART_REQUIRED=true
 if ! $FS_ALLOWED; then
 	s /usr/bin/pkgbuild --identifier com.nvidia.web-driver --root "$DRIVERS_ROOT" "$DRIVERS_PKG"
 	# macOS prompts to restart after NVIDIA Corporation has been initially allowed, without
@@ -663,7 +663,7 @@ if ! $FS_ALLOWED; then
 else
 	printf '%bInstalling...%b\n' "$B" "$R"
 	/usr/bin/rsync -r "${DRIVERS_ROOT}"/* /
-	NEEDS_KEXTCACHE=true
+	WANTS_KEXTCACHE=true
 fi
 etc "post-install.conf"
 
@@ -673,17 +673,15 @@ s /sbin/kextload "$STARTUP_KEXT" # kextload returns 27 when a kext hasn't been a
 if [[ $? -eq 27 ]]; then
 	/usr/bin/tput bel
 	printf 'Allow NVIDIA Corporation in security preferences to continue...\n'
-	NEEDS_KEXTCACHE=true
+	WANTS_KEXTCACHE=true
 	while ! s /usr/bin/kextutil -tn "$STARTUP_KEXT"; do
 		scpt "open-security-preferences.scpt"
 		sleep 5
 	done
 fi
 
-# Update caches, set nvram variable
+check_required_os || WANTS_KEXTCACHE=true
 
-check_required_os || NEEDS_KEXTCACHE=true
-$NEEDS_KEXTCACHE && update_caches
 $SET_NVRAM
 
 # Exit
