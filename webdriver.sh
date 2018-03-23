@@ -252,11 +252,13 @@ function scpt() {
 function uninstall_drivers() {
 	local REMOVE_LIST=(/Library/Extensions/GeForce* \
 		/Library/Extensions/NVDA* \
+		/Library/StagedExtensions/Library/Extensions/NVDA*Web* \
 		/System/Library/Extensions/GeForce*Web* \
+		/Library/GPUBundles/GeForce*Web* \
 		/System/Library/Extensions/NVDA*Web*)
 	REMOVE_LIST=("${REMOVE_LIST[@]/$EGPU_KEXT}")
 	# shellcheck disable=SC2086
-	s rm -rf "${REMOVE_LIST[@]}"
+	s /bin/rm -rf "${REMOVE_LIST[@]}"
 	s pkgutil --forget com.nvidia.web-driver
 	etc "uninstall.conf"
 }
@@ -682,6 +684,12 @@ fi
 
 check_required_os || WANTS_KEXTCACHE=true
 
+if $FS_ALLOWED; then
+	/usr/bin/rsync -r /System/Library/Extensions/GeForce*Web* /Library/GPUBundles
+	/usr/bin/rsync -r /Library/Extensions/NVDA*Web* /Library/StagedExtensions/Library/Extensions
+fi
+$WANTS_KEXTCACHE && update_caches
+touch /Library/Extensions
 $SET_NVRAM
 
 # Exit
