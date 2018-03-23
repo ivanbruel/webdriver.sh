@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.3.0"
+SCRIPT_VERSION="1.3.1"
 grep="/usr/bin/grep"
 shopt -s nullglob extglob
 BASENAME=$(/usr/bin/basename "$0")
@@ -41,7 +41,7 @@ fi
 	
 # SIP
 declare KEXT_ALLOWED=false FS_ALLOWED=false
-$grep -qiE -e "status: disabled|signing: disabled" <(/usr/bin/csrutil status) && KEXT_ALLOWED=true
+/usr/bin/csrutil status | $grep -qiE -e "status: disabled|signing: disabled" && KEXT_ALLOWED=true
 /usr/bin/touch /System 2> /dev/null && FS_ALLOWED=true
 
 test -t 0 && declare R='\e[0m' B='\e[1m' U='\e[4m'
@@ -252,11 +252,13 @@ function scpt() {
 function uninstall_drivers() {
 	local REMOVE_LIST=(/Library/Extensions/GeForce* \
 		/Library/Extensions/NVDA* \
+		/Library/StagedExtensions/Library/Extensions/NVDA*Web* \
 		/System/Library/Extensions/GeForce*Web* \
+		/Library/GPUBundles/GeForce*Web* \
 		/System/Library/Extensions/NVDA*Web*)
 	REMOVE_LIST=("${REMOVE_LIST[@]/$EGPU_KEXT}")
 	# shellcheck disable=SC2086
-	s rm -rf "${REMOVE_LIST[@]}"
+	s /bin/rm -rf "${REMOVE_LIST[@]}"
 	s pkgutil --forget com.nvidia.web-driver
 	etc "uninstall.conf"
 }
@@ -636,9 +638,8 @@ else
 	# Get unapproved bundle IDs
 	printf '%bExamining extensions...%b\n' "$B" "$R"
 	QUERY="select bundle_id from kext_policy where team_id=\"6KR3T733EC\" and (flags=1 or flags=8)"
-	while IFS= read -r LINE; do
-		APPROVED_BUNDLES+=("$LINE")
-	done < <(/usr/bin/sqlite3 /private/var/db/SystemPolicyConfiguration/KextPolicy "$QUERY" 2> /dev/null)
+	APPROVED_BUNDLES_STRING="$(/usr/bin/sqlite3 /private/var/db/SystemPolicyConfiguration/KextPolicy "$QUERY" 2> /dev/null)"
+	APPROVED_BUNDLES=($APPROVED_BUNDLES_STRING)
 	for MATCH in "${APPROVED_BUNDLES[@]}"; do
 		for index in "${!BUNDLES[@]}"; do
 			if [[ ${BUNDLES[index]} == "$MATCH" ]]; then
@@ -652,7 +653,7 @@ fi
 # Install
 
 uninstall_drivers
-declare CHANGES_MADE=true NEEDS_KEXTCACHE=false RESTART_REQUIRED=true
+declare CHANGES_MADE=true WANTS_KEXTCACHE=false RESTART_REQUIRED=true
 if ! $FS_ALLOWED; then
 	s /usr/bin/pkgbuild --identifier com.nvidia.web-driver --root "$DRIVERS_ROOT" "$DRIVERS_PKG"
 	# macOS prompts to restart after NVIDIA Corporation has been initially allowed, without
@@ -664,7 +665,7 @@ if ! $FS_ALLOWED; then
 else
 	printf '%bInstalling...%b\n' "$B" "$R"
 	/usr/bin/rsync -r "${DRIVERS_ROOT}"/* /
-	NEEDS_KEXTCACHE=true
+	WANTS_KEXTCACHE=true
 fi
 etc "post-install.conf"
 
@@ -674,17 +675,21 @@ s /sbin/kextload "$STARTUP_KEXT" # kextload returns 27 when a kext hasn't been a
 if [[ $? -eq 27 ]]; then
 	/usr/bin/tput bel
 	printf 'Allow NVIDIA Corporation in security preferences to continue...\n'
-	NEEDS_KEXTCACHE=true
+	WANTS_KEXTCACHE=true
 	while ! s /usr/bin/kextutil -tn "$STARTUP_KEXT"; do
 		scpt "open-security-preferences.scpt"
 		sleep 5
 	done
 fi
 
-# Update caches, set nvram variable
+check_required_os || WANTS_KEXTCACHE=true
 
-check_required_os || NEEDS_KEXTCACHE=true
-$NEEDS_KEXTCACHE && update_caches
+if $FS_ALLOWED; then
+	/usr/bin/rsync -r /System/Library/Extensions/GeForce*Web* /Library/GPUBundles
+	/usr/bin/rsync -r /Library/Extensions/NVDA*Web* /Library/StagedExtensions/Library/Extensions
+fi
+$WANTS_KEXTCACHE && update_caches
+touch /Library/Extensions
 $SET_NVRAM
 
 # Exit
@@ -692,6 +697,6 @@ $SET_NVRAM
 if $OPT_SYSTEM; then
 	s rm -rf "$TMP_DIR"
 	printf '%bSystem update...%b\n' "$B" "$R"
-	$grep -iE -e "no updates|restart" <(/usr/sbin/softwareupdate -ir 2>&1) | /usr/bin/tail -1
+	/usr/sbin/softwareupdate -ir 2>&1 | $grep -iE -e "no updates|restart" | /usr/bin/tail -1
 fi
 exit_after_changes "Installation complete."
