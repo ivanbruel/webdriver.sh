@@ -636,10 +636,8 @@ else
 	# Get unapproved bundle IDs
 	printf '%bExamining extensions...%b\n' "$B" "$R"
 	QUERY="select bundle_id from kext_policy where team_id=\"6KR3T733EC\" and (flags=1 or flags=8)"
-	/usr/bin/sqlite3 /private/var/db/SystemPolicyConfiguration/KextPolicy "$QUERY" 2> /dev/null \
-	| while IFS= read -r LINE; do
-		APPROVED_BUNDLES+=("$LINE")
-	done
+	APPROVED_BUNDLES_STRING="$(/usr/bin/sqlite3 /private/var/db/SystemPolicyConfiguration/KextPolicy "$QUERY" 2> /dev/null)"
+	APPROVED_BUNDLES=($APPROVED_BUNDLES_STRING)
 	for MATCH in "${APPROVED_BUNDLES[@]}"; do
 		for index in "${!BUNDLES[@]}"; do
 			if [[ ${BUNDLES[index]} == "$MATCH" ]]; then
