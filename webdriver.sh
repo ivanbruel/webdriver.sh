@@ -38,11 +38,6 @@ if [[ ! -f "${DIRNAME}/.portable" ]]; then
 else
 	HOST_PREFIX="${DIRNAME}"; LIBEXEC="/"
 fi
-	
-# SIP
-declare KEXT_ALLOWED=false FS_ALLOWED=false
-/usr/bin/csrutil status | $grep -qiE -e "status: disabled|signing: disabled" && KEXT_ALLOWED=true
-/usr/bin/touch /System 2> /dev/null && FS_ALLOWED=true
 
 test -t 0 && declare R='\e[0m' B='\e[1m' U='\e[4m'
 DRIVERS_DIR_HINT="NVWebDrivers.pkg"
@@ -53,9 +48,15 @@ ERR_PLIST_WRITE="Couldn't set a required value in a property list"
 SET_NVRAM="/usr/sbin/nvram nvda_drv=1%00"
 UNSET_NVRAM="/usr/sbin/nvram -d nvda_drv"
 declare CHANGES_MADE=false RESTART_REQUIRED=false REINSTALL_MESSAGE=false
-declare -i EXIT_ERROR=0 COMMAND_COUNT=0 DONT_INVALIDATE_KEXTS=0
-declare -i CLOVER_AUTO_PATCH=1 CLOVER_PATCH=0 CLOVER_DIR=0
+declare -i EXIT_ERROR COMMAND_COUNT DONT_INVALIDATE_KEXTS STAGE_BUNDLES
+declare -i CLOVER_AUTO_PATCH=1 CLOVER_PATCH CLOVER_DIR
 declare OPT_REINSTALL=false OPT_SYSTEM=false OPT_ALL=false OPT_YES=false
+
+# SIP
+declare KEXT_ALLOWED=false FS_ALLOWED=false
+/usr/bin/csrutil status | $grep -qiE -e "status: disabled|signing: disabled" && KEXT_ALLOWED=true
+/usr/bin/touch /System 2> /dev/null && FS_ALLOWED=true
+$FS_ALLOWED && [[ -d /Library/GPUBundles/GeForceGLDriverWeb.bundle ]] && STAGE_BUNDLES=1
 
 if [[ $BASENAME =~ "swebdriver" ]]; then
 	[[ $1 != "-u" ]] && exit 1
@@ -682,12 +683,13 @@ if [[ $? -eq 27 ]]; then
 	done
 fi
 
-check_required_os || WANTS_KEXTCACHE=true
+# Update caches and NVRAM
 
-if $FS_ALLOWED; then
+if [[ STAGE_BUNDLES -eq 1 ]]; then
 	/usr/bin/rsync -r /System/Library/Extensions/GeForce*Web* /Library/GPUBundles
 	/usr/bin/rsync -r /Library/Extensions/NVDA*Web* /Library/StagedExtensions/Library/Extensions
 fi
+check_required_os || WANTS_KEXTCACHE=true
 $WANTS_KEXTCACHE && update_caches
 touch /Library/Extensions
 $SET_NVRAM
