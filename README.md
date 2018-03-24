@@ -17,7 +17,7 @@ Bash script for managing NVIDIA's web drivers on macOS High Sierra.
 
 <br/>
 
-<pre><code>source&nbsp;<(curl&nbsp;-s&nbsp;https://raw.githubusercontent.com/vulgo/webdriver.sh/v1.3.2/get)</code></pre>
+<pre><code>source&nbsp;<(curl&nbsp;-s&nbsp;https://raw.githubusercontent.com/vulgo/webdriver.sh/v1.3.3/get)</code></pre>
 
 <br/>
 
@@ -119,7 +119,7 @@ Yes, you can use webdriver.sh before or after using any other method of driver i
 
 #### Does webdriver.sh install the NVIDIA preference pane?
 
-No, you can install it at any point via NVIDIA's installer package - webdriver.sh works fine with or without it. Alternatively, [Web Driver Manager](https://github.com/vulgo/WebDriverManager/releases/download/v1.3/WebDriverManager.dmg) is a minimal menu bar app ([source](https://github.com/vulgo/WebDriverManager)) that monitors driver status and the nvda_drv NVRAM variable.
+No, you can install it at any point via NVIDIA's installer package - webdriver.sh works fine with or without it. Alternatively, [Web Driver Manager](https://github.com/vulgo/WebDriverManager/releases/download/v1.9/WebDriverManager.dmg) is menu bar app ([source](https://github.com/vulgo/WebDriverManager)) for monitoring the web driver with some extra features.
 
 #### Do I need to disable SIP?
 
