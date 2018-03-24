@@ -359,6 +359,12 @@ function match_build() {
 	return 1
 }
 
+function stage_bundles() {
+	/usr/bin/rsync -r /System/Library/Extensions/GeForce*Web*.bundle /Library/GPUBundles
+	/usr/bin/rsync -r /Library/Extensions/NVDA*Web*.kext /Library/StagedExtensions/Library/Extensions
+	/usr/bin/rsync -r /Library/Extensions/GeForce*Web*.kext /Library/StagedExtensions/Library/Extensions
+} 2> /dev/null
+
 # Load settings
 
 etc "settings.conf"
@@ -686,10 +692,7 @@ fi
 
 # Update caches and NVRAM
 
-if [[ STAGE_BUNDLES -eq 1 ]]; then
-	/usr/bin/rsync -r /System/Library/Extensions/GeForce*Web* /Library/GPUBundles
-	/usr/bin/rsync -r /Library/Extensions/NVDA*Web* /Library/StagedExtensions/Library/Extensions
-fi
+(( STAGE_BUNDLES == 1 )) && stage_bundles
 check_required_os || WANTS_KEXTCACHE=true
 $WANTS_KEXTCACHE && update_caches
 touch /Library/Extensions
