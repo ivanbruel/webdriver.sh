@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.3.1"
+SCRIPT_VERSION="1.3.3"
 grep="/usr/bin/grep"
 shopt -s nullglob extglob
 BASENAME=$(/usr/bin/basename "$0")
@@ -251,8 +251,9 @@ function scpt() {
 }
 
 function uninstall_drivers() {
-	local REMOVE_LIST=(/Library/Extensions/GeForce* \
-		/Library/Extensions/NVDA* \
+	local REMOVE_LIST=(/Library/Extensions/GeForce*Web* \
+		/Library/StagedExtensions/Library/Extensions/GeForce*Web \
+		/Library/Extensions/NVDA*Web* \
 		/Library/StagedExtensions/Library/Extensions/NVDA*Web* \
 		/System/Library/Extensions/GeForce*Web* \
 		/Library/GPUBundles/GeForce*Web* \
