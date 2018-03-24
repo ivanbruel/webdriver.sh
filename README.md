@@ -111,36 +111,11 @@ Displays help, lists options.
 <br />
 <br />
 
-## Frequently Asked Questions
+## Web Interface
 
-#### Is webdriver.sh compatible with regular, or other third-party methods of driver installation?
+[https://vulgo.github.io/nvidia-drivers](https://vulgo.github.io/nvidia-drivers)
 
-Yes, you can use webdriver.sh before or after using any other method of driver installation.
-
-#### Does webdriver.sh install the NVIDIA preference pane?
-
-No, you can install it at any point via NVIDIA's installer package - webdriver.sh works fine with or without it. Alternatively, [Web Driver Manager](https://github.com/vulgo/WebDriverManager/releases/download/v1.9/WebDriverManager-1.9.dmg) is menu bar app ([source](https://github.com/vulgo/WebDriverManager)) for monitoring the web driver with some extra features.
-
-#### Do I need to disable SIP?
-
-No, but you'll want to if you are modifying the drivers to load - making changes to a kext's Info.plist excludes it from the prelinked kernel the next time it's built.
-
-#### Will webdriver.sh mess with NVIDIA's installer or 'repackage' the driver?
-
-No, there are [other tools](https://www.google.com/search?q=nvidia+web+driver+repackager) available for doing this. For example,  [NvidiaWebDriverRepackager](https://github.com/Pavo-IM/NvidiaWebDriverRepackager)
-
-#### Won't there be problems without repackaging?
-
-No, the drivers are installed in exactly the same way (yes, it's just copying files) - and NVIDIA's own installer removes anything installed by webdriver.sh.
-
-#### Can't I just uninstall the drivers using webdriver.sh?
-
-Yes, ```webdriver -r```
-
-#### Does webdriver.sh install things to the wrong place?
-
-No.
-
+<br />
 <br />
 
 ## License
