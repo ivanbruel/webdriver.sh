@@ -1,5 +1,9 @@
 # Release notes
 
+#### 1.3.2
+
+- Update secure bundles if they were previously staged
+
 ## 1.3.0
 
 #### Recent changes
