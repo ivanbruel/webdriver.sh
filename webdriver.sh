@@ -252,15 +252,14 @@ function scpt() {
 
 function uninstall_drivers() {
 	local REMOVE_LIST=(/Library/Extensions/GeForce*Web* \
-		/Library/StagedExtensions/Library/Extensions/GeForce*Web \
 		/Library/Extensions/NVDA*Web* \
-		/Library/StagedExtensions/Library/Extensions/NVDA*Web* \
 		/System/Library/Extensions/GeForce*Web* \
 		/Library/GPUBundles/GeForce*Web* \
 		/System/Library/Extensions/NVDA*Web*)
 	REMOVE_LIST=("${REMOVE_LIST[@]/$EGPU_KEXT}")
 	# shellcheck disable=SC2086
 	s /bin/rm -rf "${REMOVE_LIST[@]}"
+	/usr/sbin/kextcache -clear-staging
 	s pkgutil --forget com.nvidia.web-driver
 	etc "uninstall.conf"
 }
@@ -360,6 +359,7 @@ function match_build() {
 }
 
 function stage_bundles() {
+	/bin/mkdir -p /Library/GPUBundles /Library/StagedExtensions/Library/Extensions
 	/usr/bin/rsync -r /System/Library/Extensions/GeForce*Web*.bundle /Library/GPUBundles
 	/usr/bin/rsync -r /Library/Extensions/NVDA*Web*.kext /Library/StagedExtensions/Library/Extensions
 	/usr/bin/rsync -r /Library/Extensions/GeForce*Web*.kext /Library/StagedExtensions/Library/Extensions
