@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.3.4"
+SCRIPT_VERSION="1.3.5"
 grep="/usr/bin/grep"
 shopt -s nullglob extglob
 BASENAME=$(/usr/bin/basename "$0")
@@ -284,6 +284,7 @@ function update_caches() {
 	local ERR_LE="There was a problem updating directory caches for /L/E"
 	local RESULT
 	printf '%bUpdating caches...%b\n' "$B" "$R"
+	load_all
 	RESULT=$(/usr/sbin/kextcache -v 2 -i / 2>&1)
 	$grep -qie "$PK" <<< "$RESULT" || caches_error "$ERR_PK"
 	$grep -qie "$SLE" <<< "$RESULT" || caches_error "$ERR_SLE"
@@ -364,6 +365,10 @@ function stage_bundles() {
 	/usr/bin/rsync -r /Library/Extensions/NVDA*Web*.kext /Library/StagedExtensions/Library/Extensions
 	/usr/bin/rsync -r /Library/Extensions/GeForce*Web*.kext /Library/StagedExtensions/Library/Extensions
 } 2> /dev/null
+
+function load_all() {
+	/sbin/kextload /Library/Extensions/NVDA* /Library/Extensions/GeForce* /System/Library/Extensions/AppleHDA.kext
+} > /dev/null 2>&1
 
 # Load settings
 
@@ -695,6 +700,7 @@ fi
 (( STAGE_BUNDLES == 1 )) && stage_bundles
 check_required_os || WANTS_KEXTCACHE=true
 $WANTS_KEXTCACHE && update_caches
+! $WANTS_KEXTCACHE && load_all
 touch /Library/Extensions
 $SET_NVRAM
 
