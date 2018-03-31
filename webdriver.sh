@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.3.5"
+SCRIPT_VERSION="1.3.6"
 grep="/usr/bin/grep"
 shopt -s nullglob extglob
 BASENAME=$(/usr/bin/basename "$0")
@@ -360,10 +360,8 @@ function match_build() {
 }
 
 function stage_bundles() {
-	/bin/mkdir -p /Library/GPUBundles /Library/StagedExtensions/Library/Extensions
+	/bin/mkdir -p /Library/GPUBundles
 	/usr/bin/rsync -r /System/Library/Extensions/GeForce*Web*.bundle /Library/GPUBundles
-	/usr/bin/rsync -r /Library/Extensions/NVDA*Web*.kext /Library/StagedExtensions/Library/Extensions
-	/usr/bin/rsync -r /Library/Extensions/GeForce*Web*.kext /Library/StagedExtensions/Library/Extensions
 } 2> /dev/null
 
 function load_all() {

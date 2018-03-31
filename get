@@ -5,7 +5,7 @@
 # source <(curl -s https://raw.githubusercontent.com/vulgo/webdriver.sh/v1.3.5/get)
 #
 set -eE
-VERSION="1.3.5"
+VERSION="1.3.6"
 INSTALL_DIR="webdriver-sh"
 SCRIPT_FILENAME="webdriver.sh"
 PATCHER_FILENAME="clover-patcher"
