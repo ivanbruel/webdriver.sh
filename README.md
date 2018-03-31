@@ -1,5 +1,7 @@
 # webdriver.sh
 
+Note: eGPU users please see [this thread](https://egpu.io/forums/mac-setup/wip-nvidia-egpu-support-for-high-sierra/paged/38/) before updating your system to 10.13.4
+
 <p align="center">
 <picture>
 <source srcset="https://github.com/vulgo/webdriver.sh/raw/master/Images/screenshot.png, https://github.com/vulgo/webdriver.sh/raw/master/Images/screenshot@2x.png 2x" />
