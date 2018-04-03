@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.3.8"
 grep="/usr/bin/grep"
 shopt -s nullglob extglob
 BASENAME=$(/usr/bin/basename "$0")
@@ -49,7 +49,7 @@ SET_NVRAM="/usr/sbin/nvram nvda_drv=1%00"
 UNSET_NVRAM="/usr/sbin/nvram -d nvda_drv"
 declare CHANGES_MADE=false RESTART_REQUIRED=false REINSTALL_MESSAGE=false
 declare -i EXIT_ERROR COMMAND_COUNT DONT_INVALIDATE_KEXTS STAGE_BUNDLES
-declare -i CLOVER_AUTO_PATCH=1 REQUIRED_OS_PATCH CLOVER_DIR
+declare -i CLOVER_AUTO_PATCH=1 REQUIRED_OS_PATCH CLOVER_DIR NGFU
 declare OPT_REINSTALL=false OPT_SYSTEM=false OPT_ALL=false OPT_YES=false
 
 # SIP
