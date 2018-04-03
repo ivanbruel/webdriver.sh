@@ -372,28 +372,33 @@ function load_all() {
 
 etc "settings.conf"
 
-# NVDARequiredOS kext patch
-BOOT_LOG=$(/usr/sbin/ioreg -p IODeviceTree -c IOService -k boot-log -d 1 -r | $grep boot-log \
-	| /usr/bin/awk -v FS="(<|>)" '{print $2}' | /usr/bin/xxd -r -p)
-if kextstat | $grep -qi -e "nvidiagraphicsfixup"; then
-	if $grep -qi -e "boot-args=" <<< "$BOOT_LOG" | grep -qi "ngfxcompat=1"; then
-		CLOVER_AUTO_PATCH=0
-		REQUIRED_OS_PATCH=1
-		NGFU=1
-	fi
-elif kextstat | $grep -qi -e "fakesmc" && (( CLOVER_AUTO_PATCH == 1)); then
-	$grep -qiE -e 'selfdirpath.*\\efi\\clover' <<< "$BOOT_LOG" && CLOVER_DIR=1
-	if $grep -qiE -e "nvdastartupweb.*allowed" <<< "$BOOT_LOG"; then
-		REQUIRED_OS_PATCH=1
-	elif $grep -qiE -e "nvdastartupweb.*disabled.*user" <<< "$BOOT_LOG"; then
-		REQUIRED_OS_PATCH=-1
-	fi
-	(( CLOVER_DIR == 1 && REQUIRED_OS_PATCH != 1 && REQUIRED_OS_PATCH != -1 )) && libexec "clover-patcher" && REQUIRED_OS_PATCH=1
-	if (( CLOVER_DIR == 1 && REQUIRED_OS_PATCH == -1 )) && ! $OPT_YES; then
-		if ask "Enable Clover patch?"; then
-			libexec "clover-patcher" && REQUIRED_OS_PATCH=1
-		else
-			REQUIRED_OS_PATCH=0
+# Clover patch
+if (( CLOVER_AUTO_PATCH == 1 )); then
+	BOOT_LOG=$(/usr/sbin/ioreg -p IODeviceTree -c IOService -k boot-log -d 1 -r | $grep 'boot-log' \
+		| /usr/bin/awk -v FS="(<|>)" '{print $2}' | /usr/bin/xxd -r -p)
+	if kextstat | $grep -qi -e 'nvidiagraphicsfixup'; then
+		if $grep -qi -e 'boot-args=' <<< "$BOOT_LOG" | $grep -qi -e 'ngfxcompat=1'; then
+			REQUIRED_OS_PATCH=1
+			NGFU=1
+		fi
+		if ioreg -c IOPCIDevice -r -d 1 -k force-compat | $grep -qi -e 'force-compat'; then
+			REQUIRED_OS_PATCH=1
+			NGFU=1
+		fi
+	elif kextstat | $grep -qi -e "fakesmc"; then
+		$grep -qiE -e 'selfdirpath.*\\efi\\(clover|boot)' <<< "$BOOT_LOG" && CLOVER_DIR=1
+		if $grep -qiE -e 'nvdastartupweb.*allowed' <<< "$BOOT_LOG"; then
+			REQUIRED_OS_PATCH=1
+		elif $grep -qiE -e 'nvdastartupweb.*disabled.*user' <<< "$BOOT_LOG"; then
+			REQUIRED_OS_PATCH=-1
+		fi
+		(( CLOVER_DIR == 1 && REQUIRED_OS_PATCH != 1 && REQUIRED_OS_PATCH != -1 )) && libexec "clover-patcher" && REQUIRED_OS_PATCH=1
+		if (( CLOVER_DIR == 1 && REQUIRED_OS_PATCH == -1 )) && ! $OPT_YES; then
+			if ask "Enable Clover patch?"; then
+				libexec "clover-patcher" && REQUIRED_OS_PATCH=1
+			else
+				REQUIRED_OS_PATCH=0
+			fi
 		fi
 	fi
 fi
@@ -408,7 +413,7 @@ if [[ $COMMAND == "CMD_REQUIRED_OS" ]]; then
 	else
 		if (( REQUIRED_OS_PATCH == 1 )); then
 			if [[ $NGFU -eq 1 ]]; then
-				warning "NVIDIAGraphicsFixup patches NVDARequiredOS when ngfxcompat=1 boot argument is set"
+				warning "NVDAStartupWeb is already being patched by NVIDIAGraphicsFixup"
 			else
 				warning "NVDAStartupWeb is already being patched by Clover"
 			fi
