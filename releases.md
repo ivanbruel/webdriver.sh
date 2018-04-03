@@ -1,5 +1,9 @@
 # Release notes
 
+#### 1.3.7
+
+- Add check for NVIDIAGraphicsFixup with -ngfxcompat boot argument
+
 #### 1.3.2
 
 - Update secure bundles if they were previously staged

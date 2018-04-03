@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.3.6"
+SCRIPT_VERSION="1.3.7"
 grep="/usr/bin/grep"
 shopt -s nullglob extglob
 BASENAME=$(/usr/bin/basename "$0")

@@ -13,13 +13,13 @@ Bash script for managing NVIDIA's web drivers on macOS High Sierra.
 
 - The easiest way to install NVIDIA's drivers
 - Quickly roll back to a previous driver version with ```webdriver list```
-- Automatically applies a Clover kext patch - use any driver version (Clover systems)
+- Applies a Clover kext patch if drivers are not being patched some other way (Clover systems)
 - Or patches the drivers to load on your current macOS version (non-Clover systems)
 - Also sets the required build number in NVDAEGPUSupport.kext (EGPU systems)
 
 <br/>
 
-<pre><code>source&nbsp;<(curl&nbsp;-s&nbsp;https://raw.githubusercontent.com/vulgo/webdriver.sh/v1.3.6/get)</code></pre>
+<pre><code>source&nbsp;<(curl&nbsp;-s&nbsp;https://raw.githubusercontent.com/vulgo/webdriver.sh/v1.3.7/get)</code></pre>
 
 <br/>
 
