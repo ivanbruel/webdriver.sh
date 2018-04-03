@@ -376,7 +376,7 @@ etc "settings.conf"
 BOOT_LOG=$(/usr/sbin/ioreg -p IODeviceTree -c IOService -k boot-log -d 1 -r | $grep boot-log \
 	| /usr/bin/awk -v FS="(<|>)" '{print $2}' | /usr/bin/xxd -r -p)
 if kextstat | $grep -qi -e "nvidiagraphicsfixup"; then
-	if $grep -qi -e "boot-args=" <<< "$BOOT_LOG" | grep -qi "ngfxcompat"; then
+	if $grep -qi -e "boot-args=" <<< "$BOOT_LOG" | grep -qi "ngfxcompat=1"; then
 		CLOVER_AUTO_PATCH=0
 		REQUIRED_OS_PATCH=1
 		NGFU=1
@@ -408,7 +408,7 @@ if [[ $COMMAND == "CMD_REQUIRED_OS" ]]; then
 	else
 		if (( REQUIRED_OS_PATCH == 1 )); then
 			if [[ $NGFU -eq 1 ]]; then
-				warning "NVIDIAGraphicsFixup patches NVDARequiredOS when -ngfxcompat boot argument is set"
+				warning "NVIDIAGraphicsFixup patches NVDARequiredOS when ngfxcompat=1 boot argument is set"
 			else
 				warning "NVDAStartupWeb is already being patched by Clover"
 			fi
