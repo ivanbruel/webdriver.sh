@@ -377,15 +377,12 @@ if (( CLOVER_AUTO_PATCH == 1 )); then
 	BOOT_LOG=$(/usr/sbin/ioreg -p IODeviceTree -c IOService -k boot-log -d 1 -r | $grep 'boot-log' \
 		| /usr/bin/awk -v FS="(<|>)" '{print $2}' | /usr/bin/xxd -r -p)
 	if kextstat | $grep -qi -e 'nvidiagraphicsfixup'; then
-		if $grep -qi -e 'boot-args=' <<< "$BOOT_LOG" | $grep -qi -e 'ngfxcompat=1'; then
-			REQUIRED_OS_PATCH=1
-			NGFU=1
-		fi
-		if ioreg -c IOPCIDevice -r -d 1 -k force-compat | $grep -qi -e 'force-compat'; then
-			REQUIRED_OS_PATCH=1
-			NGFU=1
-		fi
-	elif kextstat | $grep -qi -e "fakesmc"; then
+		$grep -i 'boot-args=' <<< "$BOOT_LOG" | $grep -qi -e 'ngfxcompat=1' && REQUIRED_OS_PATCH=1
+		/usr/sbin/nvram boot-args | grep -qi 'ngfxcompat=1' && REQUIRED_OS_PATCH=1
+		ioreg -c IOPCIDevice -r -d 1 -k force-compat | $grep -qi -e 'force-compat' && REQUIRED_OS_PATCH=1
+		(( REQUIRED_OS_PATCH == 1 )) && NGFU=1
+	fi
+	if [[ REQUIRED_OS_PATCH -eq 0 ]] && kextstat | $grep -qi -e "fakesmc"; then
 		$grep -qiE -e 'selfdirpath.*\\efi\\(clover|boot)' <<< "$BOOT_LOG" && CLOVER_DIR=1
 		if $grep -qiE -e 'nvdastartupweb.*allowed' <<< "$BOOT_LOG"; then
 			REQUIRED_OS_PATCH=1

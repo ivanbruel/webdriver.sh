@@ -13,7 +13,7 @@ Bash script for managing NVIDIA's web drivers on macOS High Sierra with an optio
 
 <br/>
 
-<pre><code>source&nbsp;<(curl&nbsp;-s&nbsp;https://raw.githubusercontent.com/vulgo/webdriver.sh/v1.3.7/get)</code></pre>
+<pre><code>source&nbsp;<(curl&nbsp;-s&nbsp;https://raw.githubusercontent.com/vulgo/webdriver.sh/v1.3.8/get)</code></pre>
 
 <br/>
 
@@ -86,13 +86,13 @@ Removes NVIDIA's web drivers from your system.
 
 <br />
 
-#### Patch drivers to load on a different version of macOS
+#### Patch NVDAStartupWeb Info.plist for a different version of macOS
 
 ```shell-script
 webdriver -m [BUILD]
 ```
 
-Modifies the installed driver's NVDARequiredOS. If no [BUILD] is provided for option -m, the installed macOS's build version string will be used.
+Modifies the installed driver's NVDARequiredOS Info.plist property. If no [BUILD] is provided for option -m, the installed macOS's build version string will be used.
 
 <br />
 
