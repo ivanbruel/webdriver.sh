@@ -9,13 +9,7 @@ Note: eGPU users please see [this thread](https://egpu.io/forums/mac-setup/wip-n
 </picture>
 </p>
 
-Bash script for managing NVIDIA's web drivers on macOS High Sierra.
-
-- The easiest way to install NVIDIA's drivers
-- Quickly roll back to a previous driver version with ```webdriver list```
-- Applies a Clover kext patch if drivers are not being patched some other way (Clover systems)
-- Or patches the drivers to load on your current macOS version (non-Clover systems)
-- Also sets the required build number in NVDAEGPUSupport.kext (EGPU systems)
+Bash script for managing NVIDIA's web drivers on macOS High Sierra with an option to set the required build number in NVDAStartupWeb.kext and NVDAEGPUSupport.kext.
 
 <br/>
 
