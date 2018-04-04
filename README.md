@@ -13,7 +13,7 @@ Bash script for managing NVIDIA's web drivers on macOS High Sierra with an optio
 
 <br/>
 
-<pre><code>source&nbsp;<(curl&nbsp;-s&nbsp;https://raw.githubusercontent.com/vulgo/webdriver.sh/v1.3.8/get)</code></pre>
+<pre><code>bash&nbsp;<(curl&nbsp;-s&nbsp;https://raw.githubusercontent.com/vulgo/webdriver.sh/v1.3.8/get)</code></pre>
 
 <br/>
 
