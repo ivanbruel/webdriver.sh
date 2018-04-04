@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.3.8"
+SCRIPT_VERSION="1.3.9"
 grep="/usr/bin/grep"
 shopt -s nullglob extglob
 BASENAME=$(/usr/bin/basename "$0")
@@ -378,8 +378,8 @@ if (( CLOVER_AUTO_PATCH == 1 )); then
 		| /usr/bin/awk -v FS="(<|>)" '{print $2}' | /usr/bin/xxd -r -p)
 	if kextstat | $grep -qi -e 'nvidiagraphicsfixup'; then
 		$grep -i 'boot-args=' <<< "$BOOT_LOG" | $grep -qi -e 'ngfxcompat=1' && REQUIRED_OS_PATCH=1
-		/usr/sbin/nvram boot-args | grep -qi 'ngfxcompat=1' && REQUIRED_OS_PATCH=1
-		ioreg -c IOPCIDevice -r -d 1 -k force-compat | $grep -qi -e 'force-compat' && REQUIRED_OS_PATCH=1
+		/usr/sbin/nvram boot-args 2> /dev/null | $grep -qi 'ngfxcompat=1' && REQUIRED_OS_PATCH=1
+		/usr/sbin/ioreg -c IOPCIDevice -r -d 1 -k force-compat | $grep -qi -e 'force-compat' && REQUIRED_OS_PATCH=1
 		(( REQUIRED_OS_PATCH == 1 )) && NGFU=1
 	fi
 	if [[ REQUIRED_OS_PATCH -eq 0 ]] && kextstat | $grep -qi -e "fakesmc"; then
