@@ -49,7 +49,7 @@ SET_NVRAM="/usr/sbin/nvram nvda_drv=1%00"
 UNSET_NVRAM="/usr/sbin/nvram -d nvda_drv"
 declare CHANGES_MADE=false RESTART_REQUIRED=false REINSTALL_MESSAGE=false
 declare -i EXIT_ERROR COMMAND_COUNT DONT_INVALIDATE_KEXTS STAGE_BUNDLES
-declare -i CLOVER_AUTO_PATCH=1 REQUIRED_OS_PATCH CLOVER_DIR NGFU
+declare -i CLOVER_AUTO_PATCH=1 ALREADY_PATCHED CLOVER_DIR NGFU
 declare OPT_REINSTALL=false OPT_SYSTEM=false OPT_ALL=false OPT_YES=false
 
 # SIP
@@ -333,7 +333,7 @@ function set_required_os() {
 }
 
 function check_required_os() {
-	{ $OPT_YES || (( DONT_INVALIDATE_KEXTS == 1 )) || (( REQUIRED_OS_PATCH == 1 )); } && return 0
+	{ $OPT_YES || (( DONT_INVALIDATE_KEXTS == 1 )) || (( ALREADY_PATCHED == 1 )); } && return 0
 	[[ ! -f "${STARTUP_KEXT}/Contents/Info.plist" ]] && return 0
 	local RESULT KEY=":IOKitPersonalities:NVDAStartup:NVDARequiredOS"
 	RESULT=$(plistb "Print $KEY" "${STARTUP_KEXT}/Contents/Info.plist") || e "$ERR_PLIST_READ"
@@ -372,30 +372,30 @@ function load_all() {
 
 etc "settings.conf"
 
-# Clover patch
-if (( CLOVER_AUTO_PATCH == 1 )); then
-	BOOT_LOG=$(/usr/sbin/ioreg -p IODeviceTree -c IOService -k boot-log -d 1 -r | $grep 'boot-log' \
-		| /usr/bin/awk -v FS="(<|>)" '{print $2}' | /usr/bin/xxd -r -p)
-	if kextstat | $grep -qi -e 'nvidiagraphicsfixup'; then
-		$grep -i 'boot-args=' <<< "$BOOT_LOG" | $grep -qi -e 'ngfxcompat=1' && REQUIRED_OS_PATCH=1
-		/usr/sbin/nvram boot-args 2> /dev/null | $grep -qi 'ngfxcompat=1' && REQUIRED_OS_PATCH=1
-		/usr/sbin/ioreg -c IOPCIDevice -r -d 1 -k force-compat | $grep -qi -e 'force-compat' && REQUIRED_OS_PATCH=1
-		(( REQUIRED_OS_PATCH == 1 )) && NGFU=1
+# NvidiaGraphicsFixup and Clover/KextsToPatch
+
+BOOT_LOG=$(/usr/sbin/ioreg -p IODeviceTree -c IOService -k boot-log -d 1 -r | $grep 'boot-log' \
+	| /usr/bin/awk -v FS="(<|>)" '{print $2}' | /usr/bin/xxd -r -p)
+if kextstat | $grep -qi -e 'nvidiagraphicsfixup'; then
+	$grep -i 'boot-args=' <<< "$BOOT_LOG" | $grep -qi -e 'ngfxcompat=1' && ALREADY_PATCHED=1
+	/usr/sbin/nvram boot-args 2> /dev/null | $grep -qi 'ngfxcompat=1' && ALREADY_PATCHED=1
+	/usr/sbin/ioreg -c IOPCIDevice -r -d 1 -k force-compat | $grep -qi -e 'force-compat' && ALREADY_PATCHED=1
+	(( ALREADY_PATCHED == 1 )) && NGFU=1
+fi
+if (( ALREADY_PATCHED == 0 && CLOVER_AUTO_PATCH == 1 )) && kextstat | $grep -qi -e "fakesmc"; then
+	$grep -qiE -e 'selfdirpath.*\\efi\\(clover|boot)' <<< "$BOOT_LOG" && CLOVER_DIR=1
+	if $grep -qiE -e 'nvdastartupweb.*allowed' <<< "$BOOT_LOG"; then
+		ALREADY_PATCHED=1
+	elif $grep -qiE -e 'nvdastartupweb.*disabled.*user' <<< "$BOOT_LOG"; then
+		ALREADY_PATCHED=-1
 	fi
-	if [[ REQUIRED_OS_PATCH -eq 0 ]] && kextstat | $grep -qi -e "fakesmc"; then
-		$grep -qiE -e 'selfdirpath.*\\efi\\(clover|boot)' <<< "$BOOT_LOG" && CLOVER_DIR=1
-		if $grep -qiE -e 'nvdastartupweb.*allowed' <<< "$BOOT_LOG"; then
-			REQUIRED_OS_PATCH=1
-		elif $grep -qiE -e 'nvdastartupweb.*disabled.*user' <<< "$BOOT_LOG"; then
-			REQUIRED_OS_PATCH=-1
-		fi
-		(( CLOVER_DIR == 1 && REQUIRED_OS_PATCH != 1 && REQUIRED_OS_PATCH != -1 )) && libexec "clover-patcher" && REQUIRED_OS_PATCH=1
-		if (( CLOVER_DIR == 1 && REQUIRED_OS_PATCH == -1 )) && ! $OPT_YES; then
-			if ask "Enable Clover patch?"; then
-				libexec "clover-patcher" && REQUIRED_OS_PATCH=1
-			else
-				REQUIRED_OS_PATCH=0
-			fi
+	(( CLOVER_DIR == 1 && ALREADY_PATCHED != 1 && ALREADY_PATCHED != -1 )) && libexec "clover-patcher" \
+		&& ALREADY_PATCHED=1
+	if (( CLOVER_DIR == 1 && ALREADY_PATCHED == -1 )) && ! $OPT_YES; then
+		if ask "Enable Clover patch?"; then
+			libexec "clover-patcher" && ALREADY_PATCHED=1
+		else
+			ALREADY_PATCHED=0
 		fi
 	fi
 fi
@@ -408,7 +408,7 @@ if [[ $COMMAND == "CMD_REQUIRED_OS" ]]; then
 		$UNSET_NVRAM
 		exit_quietly
 	else
-		if (( REQUIRED_OS_PATCH == 1 )); then
+		if (( ALREADY_PATCHED == 1 )); then
 			if [[ $NGFU -eq 1 ]]; then
 				warning "NVDAStartupWeb is already being patched by NVIDIAGraphicsFixup"
 			else
