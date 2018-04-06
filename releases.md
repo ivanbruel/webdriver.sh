@@ -2,7 +2,9 @@
 
 ## 1.4.0
 
-- Add check for NVIDIAGraphicsFixup patching
+#### Recent changes
+
+- Add check for NvidiaGraphicsFixup patching
 - Update secure bundles if they were previously staged
 
 ## 1.3.0
