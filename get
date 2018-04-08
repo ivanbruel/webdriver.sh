@@ -2,11 +2,11 @@
 #
 # Usage:
 #
-# source <(curl -s https://raw.githubusercontent.com/vulgo/webdriver.sh/v1.3.8/get)
+# bash <(curl -s https://raw.githubusercontent.com/vulgo/webdriver.sh/v1.4.0/get)
 #
 set -eE
 VERSION="1.4.0"
-INSTALL_DIR="webdriver-sh"
+INSTALL_DIR="webdriver-$VERSION"
 SCRIPT_FILENAME="webdriver.sh"
 PATCHER_FILENAME="clover-patcher"
 if [[ -d "$INSTALL_DIR" ]]; then
@@ -18,6 +18,11 @@ chmod +x ./"$INSTALL_DIR"/"$SCRIPT_FILENAME"
 chmod +x ./"$INSTALL_DIR"/"$PATCHER_FILENAME"
 touch ./"$INSTALL_DIR"/.portable
 cd "$INSTALL_DIR"
-ln -s "$SCRIPT_FILENAME" swebdriver
-echo "./${SCRIPT_FILENAME} --help"
+printf '\e[1mwebdriver.sh %s Copyright © 2017-2018 vulgo\e[0m\n' "$VERSION"
+printf 'This is free software: you are free to change and redistribute it.\n'
+printf 'There is NO WARRANTY, to the extent permitted by law.\n'
+printf 'See the GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n'
+printf '\e[1m*** Downloaded to '
+[[ $INSTALL_DIR = /* ]] && printf "$INSTALL_DIR" || printf "$PWD/${1#./}"
+printf '%s ***\e[0m\n' "$SCRIPT_FILENAME"
 ./"$SCRIPT_FILENAME" --help
