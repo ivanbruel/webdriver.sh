@@ -2,10 +2,10 @@
 #
 # Usage:
 #
-# bash <(curl -s https://raw.githubusercontent.com/vulgo/webdriver.sh/v1.4.0/get)
+# bash <(curl -s https://raw.githubusercontent.com/vulgo/webdriver.sh/v1.4.1/get)
 #
 set -eE
-VERSION="1.4.0"
+VERSION="1.4.1"
 INSTALL_DIR="webdriver-$VERSION"
 SCRIPT_FILENAME="webdriver.sh"
 PATCHER_FILENAME="clover-patcher"
