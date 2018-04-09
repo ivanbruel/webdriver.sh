@@ -7,19 +7,16 @@
 set -eE
 VERSION="1.4.2"
 INSTALL_DIR="webdriver-$VERSION"
-SCRIPT_FILENAME="webdriver.sh"
-PATCHER_FILENAME="clover-patcher"
 if [[ -d "$INSTALL_DIR" ]]; then
 	rm -rf "$INSTALL_DIR"; fi
 mkdir "$INSTALL_DIR"
 cd "$INSTALL_DIR"
-curl -s -o "$SCRIPT_FILENAME" "https://raw.githubusercontent.com/vulgo/webdriver.sh/v$VERSION/webdriver.sh"
-curl -# -o "$PATCHER_FILENAME" "https://raw.githubusercontent.com/vulgo/webdriver.sh/v$VERSION/libexec/bin/clover-patcher.tar.gz"
-tar -xzvf clover-patcher.tar.gz
+curl -s -o webdriver.sh "https://raw.githubusercontent.com/vulgo/webdriver.sh/v$VERSION/webdriver.sh"
+curl -# -o clover-patcher.tar.gz "https://raw.githubusercontent.com/vulgo/webdriver.sh/v$VERSION/libexec/bin/clover-patcher.tar.gz"
+tar -xzvf clover-patcher.tar.gz > /dev/null 2>&1
 rm clover-patcher.tar.gz
-chmod +x "$SCRIPT_FILENAME"
-chmod +x "$PATCHER_FILENAME"
+chmod +x webdriver.sh
+chmod +x clover-patcher
 touch .portable
-printf 'webdriver.sh was downloaded to '
-[[ $INSTALL_DIR = /* ]] && printf "$INSTALL_DIR" || printf "$PWD/${1#./}"
-printf '%s\n' "$SCRIPT_FILENAME"
+[[ $INSTALL_DIR = /* ]] && printf "%s" "$INSTALL_DIR" || printf "%s/%s" "$PWD" "${1#./}"
+printf 'webdriver.sh\n'
