@@ -2,27 +2,24 @@
 #
 # Usage:
 #
-# bash <(curl -s https://raw.githubusercontent.com/vulgo/webdriver.sh/v1.4.1/get)
+# bash <(curl -s https://raw.githubusercontent.com/vulgo/webdriver.sh/v1.4.2/get)
 #
 set -eE
-VERSION="1.4.1"
+VERSION="1.4.2"
 INSTALL_DIR="webdriver-$VERSION"
 SCRIPT_FILENAME="webdriver.sh"
 PATCHER_FILENAME="clover-patcher"
 if [[ -d "$INSTALL_DIR" ]]; then
 	rm -rf "$INSTALL_DIR"; fi
 mkdir "$INSTALL_DIR"
-curl -s -o ./"$INSTALL_DIR"/"$SCRIPT_FILENAME" "https://raw.githubusercontent.com/vulgo/webdriver.sh/v$VERSION/webdriver.sh"
-curl -s -o ./"$INSTALL_DIR"/"$PATCHER_FILENAME" "https://raw.githubusercontent.com/vulgo/webdriver.sh/v$VERSION/libexec/bin/clover-patcher"
-chmod +x ./"$INSTALL_DIR"/"$SCRIPT_FILENAME"
-chmod +x ./"$INSTALL_DIR"/"$PATCHER_FILENAME"
-touch ./"$INSTALL_DIR"/.portable
 cd "$INSTALL_DIR"
-printf '\e[1mwebdriver.sh %s Copyright © 2017-2018 vulgo\e[0m\n' "$VERSION"
-printf 'This is free software: you are free to change and redistribute it.\n'
-printf 'There is NO WARRANTY, to the extent permitted by law.\n'
-printf 'See the GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n'
-printf '\e[1m*** Downloaded to '
+curl -s -o "$SCRIPT_FILENAME" "https://raw.githubusercontent.com/vulgo/webdriver.sh/v$VERSION/webdriver.sh"
+curl -# -o "$PATCHER_FILENAME" "https://raw.githubusercontent.com/vulgo/webdriver.sh/v$VERSION/libexec/bin/clover-patcher.tar.gz"
+tar -xzvf clover-patcher.tar.gz
+rm clover-patcher.tar.gz
+chmod +x "$SCRIPT_FILENAME"
+chmod +x "$PATCHER_FILENAME"
+touch .portable
+printf 'webdriver.sh was downloaded to '
 [[ $INSTALL_DIR = /* ]] && printf "$INSTALL_DIR" || printf "$PWD/${1#./}"
-printf '%s ***\e[0m\n' "$SCRIPT_FILENAME"
-./"$SCRIPT_FILENAME" --help
+printf '%s\n' "$SCRIPT_FILENAME"
