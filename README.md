@@ -5,7 +5,7 @@ Note: eGPU users please see [this thread](https://egpu.io/forums/mac-setup/wip-n
 <p align="center">
 <picture>
 <source srcset="https://github.com/vulgo/webdriver.sh/raw/master/Images/screenshot.png, https://github.com/vulgo/webdriver.sh/raw/master/Images/screenshot@2x.png 2x" />
-<img src="https://github.com/vulgo/webdriver.sh/raw/master/Images/screenshot@2x.png" alt="webdriver.sh screenshot" width="800" />
+<img src="https://github.com/vulgo/webdriver.sh/raw/master/Images/screenshot@2x.png" alt="webdriver.sh screenshot" width="850" />
 </picture>
 </p>
 
