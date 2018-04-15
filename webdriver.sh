@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.4.2"
+SCRIPT_VERSION="1.4.3"
 grep="/usr/bin/grep"
 shopt -s nullglob extglob
 BASENAME=$(/usr/bin/basename "$0")
@@ -374,12 +374,12 @@ etc "settings.conf"
 
 # NvidiaGraphicsFixup and Clover/KextsToPatch
 
-BOOT_LOG=$(/usr/sbin/ioreg -p IODeviceTree -c IOService -k boot-log -d 1 -r | $grep 'boot-log' \
-	| /usr/bin/awk -v FS="(<|>)" '{print $2}' | /usr/bin/xxd -r -p)
+BOOT_LOG="$(/usr/sbin/ioreg -p IODeviceTree -c IOService -k boot-log -rd 1 | $grep 'boot-log' \
+	| /usr/bin/awk -v FS="(<|>)" '{print $2}' | /usr/bin/xxd -r -p)"
 if kextstat | $grep -qi -e 'nvidiagraphicsfixup'; then
-	$grep -i 'boot-args=' <<< "$BOOT_LOG" | $grep -qi -e 'ngfxcompat=1' && ALREADY_PATCHED=1
-	/usr/sbin/nvram boot-args 2> /dev/null | $grep -qi 'ngfxcompat=1' && ALREADY_PATCHED=1
-	/usr/sbin/ioreg -c IOPCIDevice -r -d 1 -k force-compat | $grep -qi -e 'force-compat' && ALREADY_PATCHED=1
+	$grep -i -e 'boot-args=' <<< "$BOOT_LOG" | $grep -qi -e 'ngfxcompat=1' && ALREADY_PATCHED=1
+	/usr/sbin/nvram boot-args 2> /dev/null | $grep -qi -e 'ngfxcompat=1' && ALREADY_PATCHED=1
+	/usr/sbin/ioreg -c IOPCIDevice -rd 1 -k force-compat | $grep -qi -e 'force-compat' && ALREADY_PATCHED=1
 	(( ALREADY_PATCHED == 1 )) && NGFU=1
 fi
 if (( ALREADY_PATCHED == 0 && CLOVER_AUTO_PATCH == 1 )) && kextstat | $grep -qi -e "fakesmc"; then

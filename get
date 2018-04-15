@@ -2,10 +2,10 @@
 #
 # Usage:
 #
-# bash <(curl -s https://raw.githubusercontent.com/vulgo/webdriver.sh/v1.4.2/get)
+# bash <(curl -s https://raw.githubusercontent.com/vulgo/webdriver.sh/v1.4.3/get)
 #
 set -eE
-VERSION="1.4.2"
+VERSION="1.4.3"
 INSTALL_DIR="webdriver-$VERSION"
 if [[ -d "$INSTALL_DIR" ]]; then
 	rm -rf "$INSTALL_DIR"; fi
