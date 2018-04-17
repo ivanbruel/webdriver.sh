@@ -1,7 +1,5 @@
 # webdriver.sh
 
-Note: eGPU users please see [this thread](https://egpu.io/forums/mac-setup/wip-nvidia-egpu-support-for-high-sierra/paged/38/) before updating your system to 10.13.4
-
 <p align="center">
 <picture>
 <source srcset="https://github.com/vulgo/webdriver.sh/raw/master/Images/screenshot.png, https://github.com/vulgo/webdriver.sh/raw/master/Images/screenshot@2x.png 2x" />
@@ -93,6 +91,8 @@ webdriver -m [BUILD]
 ```
 
 Modifies the installed driver's NVDARequiredOS Info.plist property. If no [BUILD] is provided for option -m, the installed macOS's build version string will be used.
+
+Note: webdriver.sh will prefer a non-destructive patching process where available using e.g. NvidiaGraphicsFixup, Clover. You can force plist patching with the -m option.
 
 <br />
 
