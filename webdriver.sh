@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.4.3"
+SCRIPT_VERSION="1.4.4"
 grep="/usr/bin/grep"
 shopt -s nullglob extglob
 BASENAME=$(/usr/bin/basename "$0")
@@ -26,7 +26,7 @@ RAW_ARGS=("$@")
 if ! LOCAL_BUILD=$(/usr/sbin/sysctl -n kern.osversion); then
 	printf 'sysctl error'; exit $?; fi
 LOCAL_MAJOR="${LOCAL_BUILD:0:2}"
-if (( LOCAL_MAJOR != 17 )); then
+if (( LOCAL_MAJOR < 17 )); then
 	printf 'Unsupported macOS version'; exit 1; fi
 if [[ ! -f "${DIRNAME}/.portable" ]]; then
 	LIBEXEC="/etc/webdriver.sh/"
