@@ -17,7 +17,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-SCRIPT_VERSION="1.4.4"
+SCRIPT_VERSION="1.4.5"
 grep="/usr/bin/grep"
 shopt -s nullglob extglob
 BASENAME=$(/usr/bin/basename "$0")
@@ -183,9 +183,8 @@ TMP_DIR=$(/usr/bin/mktemp -dt webdriver)
 trap "rm -rf $TMP_DIR; stty echo echok; exit" SIGINT SIGTERM SIGHUP
 UPDATES_PLIST="${TMP_DIR}/$($uuidgen)"
 INSTALLER_PKG="${TMP_DIR}/$($uuidgen)"
-EXTRACTED_PKG_DIR="${TMP_DIR}/$($uuidgen)"
+EXPAND_FULL="${TMP_DIR}/$($uuidgen)"
 DRIVERS_PKG="${TMP_DIR}/com.nvidia.web-driver.pkg"
-DRIVERS_ROOT="${TMP_DIR}/$($uuidgen)"
 
 function s() {
 	# $@: args... 
@@ -617,25 +616,19 @@ fi
 
 # Unflatten
 
+# mayankk2308: use --expand-full to expand packages and payloads
+
 printf '%bExtracting...%b\n' "$B" "$R"
-/usr/sbin/pkgutil --expand "$INSTALLER_PKG" "$EXTRACTED_PKG_DIR" || e "Failed to extract package" $?
-DIRS=("$EXTRACTED_PKG_DIR"/*"$DRIVERS_DIR_HINT")
+/usr/sbin/pkgutil --expand-full "$INSTALLER_PKG" "$EXPAND_FULL" || e "Failed to extract package" $?
+DIRS=("$EXPAND_FULL"/*"$DRIVERS_DIR_HINT")
 if [[ ${#DIRS[@]} -eq 1 ]] && [[ -d ${DIRS[0]} ]]; then
         DRIVERS_COMPONENT_DIR=${DIRS[0]}
 else
-        e "Failed to find pkgutil output directory"
+        e "Failed to find drivers payload directory"
 fi
-
-# Extract drivers
-
-mkdir "$DRIVERS_ROOT"
-/usr/bin/gunzip -dc < "${DRIVERS_COMPONENT_DIR}/Payload" > "${DRIVERS_ROOT}/tmp.cpio" \
-	|| e "Failed to extract package" $?
-cd "$DRIVERS_ROOT" || e "Failed to find drivers root directory" $?
-/usr/bin/cpio -i < "${DRIVERS_ROOT}/tmp.cpio" || e "Failed to extract package" $?
-s rm -f "${DRIVERS_ROOT}/tmp.cpio"
+DRIVERS_ROOT="${DRIVERS_COMPONENT_DIR}/Payload"
 if [[ ! -d ${DRIVERS_ROOT}/Library/Extensions || ! -d ${DRIVERS_ROOT}/System/Library/Extensions ]]; then
-	e "Unexpected directory structure after extraction"
+	e "Drivers payload has an unexpected directory structure"
 fi
 
 # User-approved kernel extension loading
