@@ -9,12 +9,6 @@
 
 Bash script for managing NVIDIA's web drivers on macOS High Sierra with an option to set the required build number in NVDAStartupWeb.kext and NVDAEGPUSupport.kext.
 
-<br/>
-
-<pre><code>bash&nbsp;<(curl&nbsp;-s&nbsp;https://raw.githubusercontent.com/vulgo/webdriver.sh/v1.4.5/get)</code></pre>
-
-<br/>
-
 ## Installing
 
 Install webdriver.sh with [Homebrew](https://brew.sh)
@@ -91,8 +85,6 @@ webdriver -m [BUILD]
 ```
 
 Modifies the installed driver's NVDARequiredOS Info.plist property. If no [BUILD] is provided for option -m, the installed macOS's build version string will be used.
-
-Note: webdriver.sh will prefer a non-destructive patching process where available using e.g. NvidiaGraphicsFixup, Clover. You can force plist patching with the -m option.
 
 <br />
 
