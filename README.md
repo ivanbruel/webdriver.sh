@@ -9,6 +9,15 @@
 
 Bash script for managing NVIDIA's web drivers on macOS High Sierra with an option to set the required build number in NVDAStartupWeb.kext and NVDAEGPUSupport.kext.
 
+#### Changes in 1.5
+
+- Preferred method of running incompatible drivers is the [NvidiaGraphicFixup](https://github.com/lvs1974/NvidiaGraphicsFixup) ngfxcompat=1 boot argument
+- Auto-adding of the Clover patch has been moved to the [GUI app here](https://github.com/vulgo/WebDriverManager) where it is a better fit
+- Auto-staging of GPU companion bundles is deterministic based on your current configuration
+- New --stage option to override deterministic behaviour
+- Single file to download, run and modify
+- Runs on 10.14 Mojave beta, now wait for [drivers](https://vulgo.github.io/nvidia-drivers) from NVIDIA
+
 ## Installing
 
 Install webdriver.sh with [Homebrew](https://brew.sh)
