@@ -9,7 +9,7 @@
 
 Bash script for managing NVIDIA's web drivers on macOS High Sierra with an option to set the required build number in NVDAStartupWeb.kext and NVDAEGPUSupport.kext.
 
-<pre><code>bash&nbsp;<(curl&nbsp;-s&nbsp;https://raw.githubusercontent.com/vulgo/webdriver.sh/vF/get)</code></pre>
+<pre><code>bash&nbsp;<(curl&nbsp;-s&nbsp;https://raw.githubusercontent.com/vulgo/webdriver.sh/v1.5.0/get)</code></pre>
 
 #### Changes in 1.5
 
