@@ -1,0 +1,37 @@
+#!/bin/bash
+
+function branch_error {
+	echo "Wrong branch"
+	exit 1
+}
+
+function error {
+	echo "Error"
+	exit 1
+}
+
+function usage {
+	echo "Requires an argument (version number)"
+	exit 1
+}
+
+cd /git/webdriver.sh || error
+
+git branch | grep "* master" || branch_error
+
+[[ -z $1 ]] && usage
+
+echo "Version number to ${1}..."
+/usr/local/bin/sed -i "s/SCRIPT_VERSION=.*/SCRIPT_VERSION=\"${1}\"/" /git/webdriver.sh/webdriver /git/webdriver.sh/get /git/io/webdriver || error
+/usr/local/bin/sed -i "s#webdriver.sh/v.*/get#webdriver.sh/v${1}/get#" /git/webdriver.sh/README.md || error
+
+echo "Commiting webdriver.sh..."
+git commit -am "$1" || error
+echo "Pushing webdriver.sh..."
+git push || error
+
+echo "Commiting io..."
+cd /git/io || error
+git commit -am "$1" || error
+echo "Pushing io..."
+git push || error

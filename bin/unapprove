@@ -1,0 +1,3 @@
+#!/bin/bash
+
+/usr/bin/sqlite3 /private/var/db/SystemPolicyConfiguration/KextPolicy 'delete from kext_policy where team_id="6KR3T733EC"'
