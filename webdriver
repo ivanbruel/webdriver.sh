@@ -20,7 +20,7 @@
 NEVER_PATCH_PLISTS=0
 LAST_SUPPORTED_MACOS_VERSION=18 # Mojave
 
-SCRIPT_VERSION="1.5.0"
+SCRIPT_VERSION="1.5.1"
 test -t 0 && R='\e[0m' B='\e[1m' U='\e[4m'
 grep="/usr/bin/grep"
 shopt -s nullglob extglob
@@ -112,7 +112,7 @@ do
 	esac
 done
 
-while getopts ":hvlu:rm:fa#:sy" OPTION; do
+while getopts ":hvlu:rm:fa#:sY" OPTION; do
 	case $OPTION in
 	"h")
 		usage
