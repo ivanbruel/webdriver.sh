@@ -601,36 +601,32 @@ fi
 
 # User-approved kernel extension loading
 
-cd "$DRIVERS_ROOT" || e "Failed to find drivers root directory" $?
-KEXT_INFO_PLISTS=(./Library/Extensions/*.kext/Contents/Info.plist)
-declare -a BUNDLES APPROVED_BUNDLES
-for PLIST in "${KEXT_INFO_PLISTS[@]}"; do
-	BUNDLE_ID=$(plistb "Print :CFBundleIdentifier" "$PLIST")
-	[[ $BUNDLE_ID ]] && BUNDLES+=("$BUNDLE_ID")
-done
-if $FS_ALLOWED; then
-	# Approve kexts
-	printf '%bApproving extensions...%b\n' "$B" "$R"
-	for BUNDLE_ID in "${BUNDLES[@]}"; do
-		sql_add_kext "$BUNDLE_ID"
-	done
-	sql_add_kext "com.nvidia.CUDA"
-	/usr/bin/sqlite3 /private/var/db/SystemPolicyConfiguration/KextPolicy <<< "$SQL" \
-		|| warning "sqlite3 exit code $?"
+QUERY="select bundle_id from kext_policy where team_id=\"6KR3T733EC\" and (flags=1 or flags=8)"
+APPROVED_BUNDLES=$(/usr/bin/sqlite3 /private/var/db/SystemPolicyConfiguration/KextPolicy "$QUERY")
+
+if [[ $APPROVED_BUNDLES ]]; then
+	NVIDIA_ALREADY_APPROVED=1
 else
-	# Get unapproved bundle IDs
-	printf '%bExamining extensions...%b\n' "$B" "$R"
-	QUERY="select bundle_id from kext_policy where team_id=\"6KR3T733EC\" and (flags=1 or flags=8)"
-	APPROVED_BUNDLES_STRING="$(/usr/bin/sqlite3 /private/var/db/SystemPolicyConfiguration/KextPolicy "$QUERY" 2> /dev/null)"
-	APPROVED_BUNDLES=($APPROVED_BUNDLES_STRING)
-	for MATCH in "${APPROVED_BUNDLES[@]}"; do
-		for index in "${!BUNDLES[@]}"; do
-			if [[ ${BUNDLES[index]} == "$MATCH" ]]; then
-				unset "BUNDLES[index]";
-			fi;
-		done;
-	done
-	UNAPPROVED_BUNDLES=$(printf "%s" "${BUNDLES[@]}")
+	if $FS_ALLOWED; then
+		# Approve kexts
+		printf '%bApproving extensions...%b\n' "$B" "$R"
+		declare -a BUNDLES KEXT_INFO_PLISTS
+		cd "$DRIVERS_ROOT" || e "Failed to find drivers root directory" $?
+		KEXT_INFO_PLISTS=(./Library/Extensions/*.kext/Contents/Info.plist)
+		for PLIST in "${KEXT_INFO_PLISTS[@]}"; do
+			BUNDLE_ID=$(plistb "Print :CFBundleIdentifier" "$PLIST")
+			[[ $BUNDLE_ID ]] && BUNDLES+=("$BUNDLE_ID")
+		done
+		for BUNDLE_ID in "${BUNDLES[@]}"; do
+			sql_add_kext "$BUNDLE_ID"
+		done
+		sql_add_kext "com.nvidia.CUDA"
+		/usr/bin/sqlite3 /private/var/db/SystemPolicyConfiguration/KextPolicy <<< "$SQL" \
+			|| warning "sqlite3 exit code $?"
+		NVIDIA_ALREADY_APPROVED=1
+	else
+		NVIDIA_ALREADY_APPROVED=0
+	fi
 fi
 		
 # Install
@@ -639,7 +635,7 @@ uninstall_drivers
 CHANGES_MADE=true WANTS_KEXTCACHE=false RESTART_REQUIRED=true
 if ! $FS_ALLOWED; then
 	s /usr/bin/pkgbuild --identifier com.nvidia.web-driver --root "$DRIVERS_ROOT" "$DRIVERS_PKG"
-	if ! $KEXT_ALLOWED && [[ ! -z $UNAPPROVED_BUNDLES ]]; then
+	if ! $KEXT_ALLOWED && ((NVIDIA_ALREADY_APPROVED == 0)); then
 		# Show a warning in case macOS prompts to restart before we are done
 		warning "Don't restart until this process is complete."; fi
 	printf '%bInstalling...%b\n' "$B" "$R"
