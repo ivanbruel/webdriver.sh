@@ -265,7 +265,11 @@ function uninstall_drivers() {
 function update_caches() {
 	printf '%bUpdating caches...%b\n' "$B" "$R"
 	load_all
-	s /usr/sbin/kextcache -i /
+	if $SHOW_KEXTCACHE_OUTPUT; then
+		/usr/sbin/kextcache -i /
+	else
+		s /usr/sbin/kextcache -i /
+	fi
 }
 
 function ask() {
@@ -307,7 +311,10 @@ function set_required_os() {
 		fi
 	done
 	RESTART_REQUIRED=true
-	$KEXT_ALLOWED || warning "Disable SIP, run 'kextcache -i /' to allow modified drivers to load"
+	if ! $KEXT_ALLOWED; then
+		warning "Disable SIP, run 'kextcache -i /' to allow modified drivers to load"
+		SHOW_KEXTCACHE_OUTPUT=true
+	fi
 }
 
 function check_ngfxcompat() {
