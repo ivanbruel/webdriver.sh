@@ -1,0 +1,17 @@
+#!/bin/bash
+#
+# Usage:
+#
+# bash <(curl -s https://raw.githubusercontent.com/vulgo/webdriver.sh/v1.5.0/get)
+#
+set -eE
+SCRIPT_VERSION="1.5.0"
+INSTALL_DIR="webdriver-$SCRIPT_VERSION"
+if [[ -d "$INSTALL_DIR" ]]; then
+	rm -rf "$INSTALL_DIR"; fi
+mkdir "$INSTALL_DIR"
+cd "$INSTALL_DIR"
+curl -s -o webdriver "https://raw.githubusercontent.com/vulgo/webdriver.sh/v$SCRIPT_VERSION/webdriver"
+chmod +x webdriver
+[[ $INSTALL_DIR = /* ]] && printf "%s" "$INSTALL_DIR" || printf "%s/%s" "$PWD" "${1#./}"
+printf 'webdriver\n'
