@@ -159,7 +159,7 @@ while getopts ":hvlu:rm:fa#:sy" OPTION; do
 			printf 'Always stage bundles was specified, but filesystem protections are already enabled\n'
 		fi
 		;;
-	"y")
+	"Y")
 		OPT_YES=true
 		;;
 	"?")
