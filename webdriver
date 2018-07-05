@@ -39,7 +39,7 @@ EGPU_KEXT="/Library/Extensions/NVDAEGPUSupport.kext"
 ERR_PLIST_READ="Couldn't read a required value from a property list"
 ERR_PLIST_WRITE="Couldn't set a required value in a property list"
 SET_NVRAM="/usr/sbin/nvram nvda_drv=1%00" UNSET_NVRAM="/usr/sbin/nvram -d nvda_drv"
-CHANGES_MADE=false RESTART_REQUIRED=false REINSTALL_MESSAGE=false
+CHANGES_MADE=false RESTART_REQUIRED=false REINSTALL_MESSAGE=false KEEP_KEXTCACHE_OUTPUT=false
 
 # SIP
 KEXT_ALLOWED=false
@@ -243,6 +243,9 @@ function exit_after_changes() {
 	printf '%s' "$MSG"
 	$RESTART_REQUIRED && printf ' You should reboot now.'
 	printf '\n'
+	if [[ $KEXTCACHE_ERR ]] && ask "Show kextcache output?"; then
+		echo "$KEXTCACHE_ERR"
+	fi
 	exit 0
 }
 
@@ -265,8 +268,8 @@ function uninstall_drivers() {
 function update_caches() {
 	printf '%bUpdating caches...%b\n' "$B" "$R"
 	load_all
-	if $SHOW_KEXTCACHE_OUTPUT; then
-		/usr/sbin/kextcache -i /
+	if $KEEP_KEXTCACHE_OUTPUT; then
+		KEXTCACHE_ERR=$( (/usr/sbin/kextcache -i / 2>&1) )
 	else
 		s /usr/sbin/kextcache -i /
 	fi
@@ -311,9 +314,10 @@ function set_required_os() {
 		fi
 	done
 	RESTART_REQUIRED=true
-	if ! $KEXT_ALLOWED; then
+	if ! $KEXT_ALLOWED && ! s /usr/bin/codesign -v "$STARTUP_KEXT"; then
 		warning "Disable SIP, run 'kextcache -i /' to allow modified drivers to load"
-		SHOW_KEXTCACHE_OUTPUT=true
+		KEEP_KEXTCACHE_OUTPUT=true
+		RESTART_REQUIRED=false
 	fi
 }
 
