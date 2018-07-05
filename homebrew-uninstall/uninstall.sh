@@ -1,4 +1,4 @@
-#!bin/bash
+#!/bin/bash
 
 # Removes webdriver.sh + configuration files
 
