@@ -13,7 +13,7 @@ Bash script for managing NVIDIA's web drivers on macOS High Sierra and later wit
 
 #### Changes in 1.5
 
-- Preferred method of running incompatible drivers is the [NvidiaGraphicFixup](https://github.com/lvs1974/NvidiaGraphicsFixup) ngfxcompat=1 boot argument
+- Preferred method of running incompatible drivers is the [WhateverGreen](https://github.com/acidanthera/WhateverGreen) ngfxcompat=1 boot argument
 - Auto-adding of the Clover patch has been moved to the [GUI app here](https://github.com/vulgo/WebDriverManager) where it is a better fit
 - Auto-staging of GPU companion bundles is deterministic based on your current configuration
 - New --stage option to override deterministic behaviour
