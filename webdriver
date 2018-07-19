@@ -322,7 +322,7 @@ function set_required_os() {
 }
 
 function check_ngfxcompat() {
-	if kextstat | $grep -qi -e 'nvidiagraphicsfixup'; then
+	if kextstat | $grep -qiE -e 'nvidiagraphicsfixup|whatevergreen'; then
 		$grep -i -e 'boot-args=' <<< "$BOOT_LOG" | $grep -qi -e 'ngfxcompat=1' && return 0
 		/usr/sbin/nvram boot-args 2> /dev/null | $grep -qi -e 'ngfxcompat=1' && return 0
 		/usr/sbin/ioreg -c IOPCIDevice -rd 1 -k force-compat | $grep -qi -e 'force-compat' && return 0
@@ -346,7 +346,7 @@ function check_required_os() {
 	
 	[[ $RESULT == "$LOCAL_BUILD" ]] && return 0
 		
-	# NvidiaGraphicsFixup
+	# WhateverGreen/NvidiaGraphicsFixup
 	check_ngfxcompat && return 0
 		
 	# KextsToPatch
