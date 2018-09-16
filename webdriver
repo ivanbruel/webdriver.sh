@@ -368,7 +368,8 @@ function sql_add_kext() {
 
 function match_build() {
 	# $1: local, $2: remote
-	local -i LOCAL=$1 REMOTE=$2 PREVIOUS=$((LOCAL - 1)) NEXT=$((LOCAL + 1))
+	local -i LOCAL=$1 REMOTE=$2
+	local PREVIOUS=$((LOCAL - 1)) NEXT=$((LOCAL + 1))
 	if ((REMOTE == NEXT)) ; then
 		return 0
 	fi
@@ -475,6 +476,7 @@ else
 			fi
 			printf '%bRunning on:%b macOS %s (%s)\n\n' "$B" "$R" "$MACOS_PRODUCT_VERSION" "$LOCAL_BUILD"
 			LIST_COUNT=${#LIST_VERSIONS[@]}
+			[[ $LIST_COUNT -eq 0 ]] && e "No drivers available for $MACOS_PRODUCT_VERSION, -a lists incompatible versions."
 			FORMAT_COMMAND="/usr/bin/tee"
 			TPUT_LINES=$(/usr/bin/tput lines)
 			MAX_ROWS=$((TPUT_LINES - 5))
