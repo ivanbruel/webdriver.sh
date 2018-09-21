@@ -155,7 +155,7 @@ while getopts ":hvlu:rm:fa#:sY" OPTION; do
 	"s")
 		if $FS_ALLOWED; then
 			OPT_ALWAYS_STAGE_BUNDLES=true
-		else
+		elif [[ $(/usr/bin/id -u) == "0" ]]; then
 			printf 'Always stage bundles was specified, but filesystem protections are already enabled\n'
 		fi
 		;;
