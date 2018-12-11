@@ -44,7 +44,9 @@ CHANGES_MADE=false RESTART_REQUIRED=false REINSTALL_MESSAGE=false KEEP_KEXTCACHE
 # SIP
 KEXT_ALLOWED=false
 FS_ALLOWED=false
-/usr/bin/csrutil status | $grep -qiE -e "status: disabled|signing: disabled" && KEXT_ALLOWED=true
+CSR_STATUS=$(/usr/bin/csrutil status)
+$grep -qiE -e "status: disabled|kext signing: disabled" <<< "$CSR_STATUS" && KEXT_ALLOWED=true
+$grep -qiE -e "status: disabled|nvram protections: disabled" <<< "$CSR_STATUS" && NVRAM_ALLOWED=true
 /usr/bin/touch /System 2> /dev/null && FS_ALLOWED=true
 $FS_ALLOWED && [[ -d /Library/GPUBundles/GeForceGLDriverWeb.bundle ]] && STAGED_BUNDLES_EXIST=1
 
@@ -322,9 +324,22 @@ function set_required_os() {
 }
 
 function check_ngfxcompat() {
+	local NEW_BOOT_ARGS
 	if kextstat | $grep -qiE -e 'nvidiagraphicsfixup|whatevergreen'; then
 		/usr/sbin/ioreg -p IODeviceTree -n chosen -d 3 | $grep -qiE -e 'boot-args.*ngfxcompat=1' && return 0
 		/usr/sbin/ioreg -c IOPCIDevice -rd 1 -k force-compat | $grep -qi -e 'force-compat' && return 0
+		if $NVRAM_ALLOWED && ! s /usr/sbin/nvram EmuVariableUefiPresent; then
+			/usr/sbin/nvram boot-args 2>/dev/null | grep -q ngfxcompat=1 && return 0
+			if ask "WhateverGreen: add ngfxcompat=1 to NVRAM boot arguments?"; then
+				if ! s /usr/sbin/nvram boot-args; then
+					NEW_BOOT_ARGS="ngfxcompat=1"
+				else
+					NEW_BOOT_ARGS="$(/usr/sbin/nvram boot-args | cut -f 2) ngfxcompat=1"
+				fi
+				/usr/sbin/nvram boot-args="$NEW_BOOT_ARGS"
+				return 0
+			fi
+		fi				
 	fi
 	return 1
 }
